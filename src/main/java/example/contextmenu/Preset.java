@@ -17,12 +17,6 @@ public class Preset {
     public static final String DEFAULT_TEMPLATE =
             "HTTP request:\r\n<cb>\r\n{{request}}\r\n</cb>\r\n\r\n{{response}}";
 
-    public static final String DEFAULT_RESPONSE_PRESENT_TEMPLATE =
-            "HTTP response:\r\n<cb>\r\n{{raw_response}}\r\n</cb>";
-
-    public static final String DEFAULT_RESPONSE_ABSENT_TEMPLATE =
-            "No response was received.";
-
     public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template) {
         this.name = name;
         this.headerRegexes = new ArrayList<>(headerRegexes);

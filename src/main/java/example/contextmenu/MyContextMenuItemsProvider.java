@@ -9,166 +9,75 @@
 package example.contextmenu;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.persistence.Preferences;
 import burp.api.montoya.http.message.HttpRequestResponse;
-import burp.api.montoya.http.message.requests.HttpRequest;
-import burp.api.montoya.http.message.responses.HttpResponse;
-import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Collections;
-import java.util.stream.Collectors;
-import java.util.regex.Pattern;
+import java.util.List;
 
 
 public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 {
     private final MontoyaApi api;
-    private final Preferences preferences;
-    
+    private final PresetStore presetStore;
 
-    // temporary fix until Burp Settings API becomes stable
-    public final static List<String> DEFAULT_knownUselessHeaders = List.of(
-        "Accept", 
-        "Accept-Language",
-        "Accept-Encoding",
-        "X-Pwnfox-Color", 
-        "Priority", 
-        "Te", 
-        "User-Agent", 
-        "X-Requested-With", 
-        "Vary", 
-        "Access-Control-Allow-Headers", 
-        "Access-Control-Allow-Methods", 
-        "X-Xss-Protection", 
-        "X-Content-Type-Options", 
-        "Access-Control-Expose-Headers", 
-        "Alt-Svc", 
-        "Via", 
-        "Server", 
-        "Sec-Ch-Ua", 
-        "Sec-Ch-Ua-Mobile", 
-        "Sec-Ch-Ua-Platform", 
-        "Upgrade-Insecure-Requests", 
-        "Sec-Fetch-Site", 
-        "Sec-Fetch-Mode", 
-        "Sec-Fetch-Dest", 
-        "Origin", 
-        "Referer",
-        "Cf-Ray",
-        "Trace-Id",
-        "Baggage"
-    );
-    
-    public final static List<String> DEFAULT_knownUselessCookies = List.of(
-        "^_[\\w_]*$",
-        "^optimizely\\w+$",
-        "^AMP_[\\w_]+$",
-        "^ajs_\\w+_id$",
-        "^GOOG\\w+$"
-    );
-
-    public MyContextMenuItemsProvider(MontoyaApi api)
+    public MyContextMenuItemsProvider(MontoyaApi api, PresetStore presetStore)
     {
         this.api = api;
-        this.preferences = api.persistence().preferences();
+        this.presetStore = presetStore;
     }
 
-    public List<Pattern> getUselessCookies() {
-        String stored = preferences.getString("uselessCookies");
-        if (stored == null || stored.isEmpty()) {
-            stored = String.join(",", DEFAULT_knownUselessCookies);
-        }
-        return Arrays.stream(stored.split(","))
-                     .map(String::trim)
-                     .map(Pattern::compile)
-                     .collect(Collectors.toList());
-    }
-
-    public List<HttpHeader> getUselessHeaders() {
-        String stored = preferences.getString("uselessHeaders");
-        if (stored == null || stored.isEmpty()) {
-            stored = String.join(",", DEFAULT_knownUselessHeaders);
-        }
-        return Arrays.stream(stored.split(","))
-                     .map(String::trim)
-                     .map(HttpHeader::httpHeader)
-                     .collect(Collectors.toList());
-    }
-
-    private HttpRequest redact(HttpRequest request) {
-        if (request.hasHeader("Authorization")) {
-            request = request.withUpdatedHeader("Authorization", request.headerValue("Authorization").replaceAll(" .+$", " [REDACTED]"));
-        }
-        if (request.hasHeader("X-Authorization")) {
-            request = request.withUpdatedHeader("X-Authorization", request.headerValue("X-Authorization").replaceAll(" .+$", " [REDACTED]"));
-        }
-        if (request.hasHeader("Cookie")) {
-            List<String> newCookies = Arrays.stream(request.headerValue("Cookie").split(";"))
-                .map(String::trim)
-                .map(s -> s.split("=", 2))
-                .filter(a -> getUselessCookies().stream().noneMatch(p -> p.matcher(a[0]).matches()))
-                .map(a -> (a.length > 1) ? (a[0] + "=" + a[1]) : a[0])
-                .collect(Collectors.toList());
-            
-            if (newCookies.isEmpty()) {
-                request = request.withRemovedHeader("Cookie");
-            } else {
-                request = request.withUpdatedHeader("Cookie", String.join("; ", newCookies));
-            }
-        }
-        return request.withRemovedHeaders(getUselessHeaders());
-    }
-
-    // TODO: figure out what happens if we get the Set-Cookie header (which can appear more than once)
-    private HttpResponse redact(HttpResponse response) {
-        return response.withRemovedHeaders(getUselessHeaders());
-    }
-
-    private String formatRequestResponse(HttpRequestResponse requestResponse) {
-        String report = "HTTP request:\r\n<cb>\r\n" + redact(requestResponse.request()).toString() + "\r\n</cb>\r\n\r\n";
-        if (requestResponse.response() != null) {
-            report += "HTTP response:\r\n<cb>\r\n" + redact(requestResponse.response()).toString() + "\r\n</cb>\r\n";
-        } else {
-            report += "No response was received.\r\n";
-        }
-        return report;
-    }
-
-    private void copyRequestResponsesToClipboard(ContextMenuEvent event) {
-        List<HttpRequestResponse> requestResponses;
-
+    private List<HttpRequestResponse> getRequestResponses(ContextMenuEvent event) {
         if (event.messageEditorRequestResponse().isPresent()) {
-            requestResponses = Collections.singletonList(event.messageEditorRequestResponse().get().requestResponse());
-        } else {
-            requestResponses = event.selectedRequestResponses();
+            return Collections.singletonList(event.messageEditorRequestResponse().get().requestResponse());
+        }
+        return event.selectedRequestResponses();
+    }
+
+    private void copyWithPreset(ContextMenuEvent event, Preset preset) {
+        List<HttpRequestResponse> requestResponses = getRequestResponses(event);
+        RequestRedactor redactor = new RequestRedactor(preset);
+
+        StringBuilder report = new StringBuilder();
+        for (HttpRequestResponse rr : requestResponses) {
+            if (report.length() > 0) {
+                report.append("\r\n");
+            }
+            report.append(redactor.format(rr));
         }
 
-        String report = "";
-        for (HttpRequestResponse requestResponse : requestResponses) {
-            report += formatRequestResponse(requestResponse) + "\r\n";
-        }
-        report = report.replaceAll("[\r\n]+$", "");
-
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(report), null);
+        String result = report.toString().replaceAll("[\r\n]+$", "");
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
     }
 
     @Override
     public List<Component> provideMenuItems(ContextMenuEvent event)
     {
-        List<Component> menuItemList = new ArrayList<>();
-        JMenuItem retrieveRequestItem = new JMenuItem("Copy for report");
+        JMenu submenu = new JMenu("Copy as snippet");
 
-        retrieveRequestItem.addActionListener(l -> copyRequestResponsesToClipboard(event));
-        menuItemList.add(retrieveRequestItem);
+        List<Preset> presets = presetStore.getResolvedPresets();
+        for (Preset preset : presets) {
+            JMenuItem item = new JMenuItem(preset.getName());
+            item.addActionListener(l -> copyWithPreset(event, preset));
+            submenu.add(item);
+        }
+
+        submenu.addSeparator();
+
+        JMenuItem createNew = new JMenuItem("Create new preset\u2026");
+        createNew.addActionListener(l -> {
+            // TODO: open settings panel / dialog pre-populated with Default values
+            api.logging().logToOutput("Create new preset: not yet implemented");
+        });
+        submenu.add(createNew);
+
+        List<Component> menuItemList = new ArrayList<>();
+        menuItemList.add(submenu);
         return menuItemList;
     }
 }

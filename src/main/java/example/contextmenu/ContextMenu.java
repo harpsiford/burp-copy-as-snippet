@@ -18,7 +18,8 @@ public class ContextMenu implements BurpExtension
     {
         api.extension().setName("Copy as snippet");
 
-        api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(api));
+        PresetStore presetStore = new PresetStore(api);
+        api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(api, presetStore));
         // api.userInterface().registerSettingsPanel(new MySettingsPanel(api));
     }
 }
