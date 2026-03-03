@@ -62,6 +62,7 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 
         List<Preset> presets = presetStore.getResolvedPresets();
         for (Preset preset : presets) {
+            if (!preset.isEnabled()) continue;
             JMenuItem item = new JMenuItem(preset.getName());
             item.addActionListener(l -> copyWithPreset(event, preset));
             submenu.add(item);

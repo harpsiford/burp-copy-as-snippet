@@ -20,6 +20,6 @@ public class ContextMenu implements BurpExtension
 
         PresetStore presetStore = new PresetStore(api);
         api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(api, presetStore));
-        // api.userInterface().registerSettingsPanel(new MySettingsPanel(api));
+        api.userInterface().registerSettingsPanel(new MySettingsPanel(api, presetStore));
     }
 }

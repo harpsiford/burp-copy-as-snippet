@@ -72,9 +72,7 @@ public class RequestRedactor {
 
         String responseBlock;
         if (requestResponse.response() != null) {
-            responseBlock = "HTTP response:\r\n<cb>\r\n"
-                    + redact(requestResponse.response()).toString()
-                    + "\r\n</cb>";
+            responseBlock = redact(requestResponse.response()).toString();
         } else {
             responseBlock = "No response was received.";
         }

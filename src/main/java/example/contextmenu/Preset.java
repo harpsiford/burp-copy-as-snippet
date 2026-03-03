@@ -13,15 +13,21 @@ public class Preset {
     private List<String> headerRegexes;
     private List<String> cookieRegexes;
     private String template;
+    private boolean enabled;
 
     public static final String DEFAULT_TEMPLATE =
-            "HTTP request:\r\n<cb>\r\n{{request}}\r\n</cb>\r\n\r\n{{response}}";
+            "HTTP request:\r\n```\r\n{{request}}\r\n```\r\n\r\nHTTP response:\r\n```\r\n{{response}}\r\n```";
 
-    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template) {
+    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template, boolean enabled) {
         this.name = name;
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
         this.template = template;
+        this.enabled = enabled;
+    }
+
+    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template) {
+        this(name, headerRegexes, cookieRegexes, template, true);
     }
 
     public static Preset createDefault() {
@@ -103,11 +109,20 @@ public class Preset {
         this.template = template;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     // --- PersistedObject serialization (for project-level storage) ---
 
     public void saveTo(PersistedObject obj) {
         obj.setString("name", name);
         obj.setString("template", template);
+        obj.setString("enabled", String.valueOf(enabled));
 
         PersistedList<String> headerList = PersistedList.persistedStringList();
         headerList.addAll(headerRegexes);
@@ -127,11 +142,15 @@ public class Preset {
         PersistedList<String> cookies = obj.getStringList("cookieRegexes");
         String template = obj.getString("template");
 
+        String enabledStr = obj.getString("enabled");
+        boolean enabled = enabledStr == null || !"false".equals(enabledStr);
+
         return new Preset(
                 name,
                 headers != null ? new ArrayList<>(headers) : List.of(),
                 cookies != null ? new ArrayList<>(cookies) : List.of(),
-                template != null ? template : DEFAULT_TEMPLATE
+                template != null ? template : DEFAULT_TEMPLATE,
+                enabled
         );
     }
 
@@ -142,6 +161,7 @@ public class Preset {
         prefs.setString(keyPrefix + ".headerRegexes", String.join("\n", headerRegexes));
         prefs.setString(keyPrefix + ".cookieRegexes", String.join("\n", cookieRegexes));
         prefs.setString(keyPrefix + ".template", template);
+        prefs.setString(keyPrefix + ".enabled", String.valueOf(enabled));
     }
 
     public static Preset loadFrom(Preferences prefs, String keyPrefix) {
@@ -152,11 +172,15 @@ public class Preset {
         String cookiesRaw = prefs.getString(keyPrefix + ".cookieRegexes");
         String template = prefs.getString(keyPrefix + ".template");
 
+        String enabledStr = prefs.getString(keyPrefix + ".enabled");
+        boolean enabled = enabledStr == null || !"false".equals(enabledStr);
+
         return new Preset(
                 name,
                 headersRaw != null && !headersRaw.isEmpty() ? List.of(headersRaw.split("\n")) : List.of(),
                 cookiesRaw != null && !cookiesRaw.isEmpty() ? List.of(cookiesRaw.split("\n")) : List.of(),
-                template != null ? template : DEFAULT_TEMPLATE
+                template != null ? template : DEFAULT_TEMPLATE,
+                enabled
         );
     }
 
