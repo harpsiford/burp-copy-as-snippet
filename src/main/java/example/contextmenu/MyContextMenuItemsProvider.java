@@ -62,7 +62,10 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
         "Sec-Fetch-Mode", 
         "Sec-Fetch-Dest", 
         "Origin", 
-        "Referer"
+        "Referer",
+        "Cf-Ray",
+        "Trace-Id",
+        "Baggage"
     );
     
     public final static List<String> DEFAULT_knownUselessCookies = List.of(
