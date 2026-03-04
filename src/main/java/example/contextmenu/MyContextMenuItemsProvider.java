@@ -72,8 +72,7 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 
         JMenuItem createNew = new JMenuItem("Create new preset\u2026");
         createNew.addActionListener(l -> {
-            // TODO: open settings panel / dialog pre-populated with Default values
-            api.logging().logToOutput("Create new preset: not yet implemented");
+            new NewPresetDialog(presetStore).show(submenu);
         });
         submenu.add(createNew);
 

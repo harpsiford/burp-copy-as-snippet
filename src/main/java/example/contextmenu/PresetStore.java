@@ -23,6 +23,11 @@ public class PresetStore {
     private static final String USER_PRESET_NAMES_KEY = "user.preset.names";
     private static final String PROJECT_PRESETS_KEY = "project.presets";
 
+    private static final String HOTKEY_ENABLED_KEY = "hotkey.enabled";
+    private static final String HOTKEY_STRING_KEY = "hotkey.string";
+
+    public static final String DEFAULT_HOTKEY = "ctrl shift pressed C";
+
     private final Preferences preferences;
     private final PersistedObject extensionData;
 
@@ -140,5 +145,25 @@ public class PresetStore {
         }
 
         return new ArrayList<>(merged.values());
+    }
+
+    // --- Hotkey settings ---
+
+    public boolean isHotkeyEnabled() {
+        String val = preferences.getString(HOTKEY_ENABLED_KEY);
+        return "true".equals(val);
+    }
+
+    public void setHotkeyEnabled(boolean enabled) {
+        preferences.setString(HOTKEY_ENABLED_KEY, String.valueOf(enabled));
+    }
+
+    public String getHotkeyString() {
+        String val = preferences.getString(HOTKEY_STRING_KEY);
+        return val != null ? val : DEFAULT_HOTKEY;
+    }
+
+    public void setHotkeyString(String hotkey) {
+        preferences.setString(HOTKEY_STRING_KEY, hotkey);
     }
 }

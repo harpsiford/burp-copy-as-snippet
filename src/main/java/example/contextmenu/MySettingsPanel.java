@@ -13,6 +13,7 @@ import java.util.List;
 public class MySettingsPanel implements SettingsPanel {
 
     private final PresetStore presetStore;
+    private final HotkeyManager hotkeyManager;
     private final JPanel panel;
 
     private final PresetTableModel tableModel;
@@ -29,11 +30,16 @@ public class MySettingsPanel implements SettingsPanel {
     private final JButton saveButton;
     private final JButton cancelButton;
 
+    // Hotkey fields
+    private final JCheckBox hotkeyEnabledCheckbox;
+    private final JTextField hotkeyField;
+
     private int editingRow = -1;
     private boolean addingNew = false;
 
-    public MySettingsPanel(MontoyaApi api, PresetStore presetStore) {
+    public MySettingsPanel(MontoyaApi api, PresetStore presetStore, HotkeyManager hotkeyManager) {
         this.presetStore = presetStore;
+        this.hotkeyManager = hotkeyManager;
 
         // --- Preset table ---
         tableModel = new PresetTableModel();
@@ -123,11 +129,56 @@ public class MySettingsPanel implements SettingsPanel {
 
         setEditorEnabled(false);
 
+        // --- Hotkey section ---
+        hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor)");
+        hotkeyEnabledCheckbox.setSelected(presetStore.isHotkeyEnabled());
+
+        hotkeyField = new JTextField(presetStore.getHotkeyString(), 20);
+        hotkeyField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        hotkeyField.setEnabled(presetStore.isHotkeyEnabled());
+
+        hotkeyEnabledCheckbox.addActionListener(e -> {
+            hotkeyField.setEnabled(hotkeyEnabledCheckbox.isSelected());
+        });
+
+        JLabel hotkeyHint = new JLabel("Suggested: " + PresetStore.DEFAULT_HOTKEY + "  (uses the first enabled preset)");
+        hotkeyHint.setFont(hotkeyHint.getFont().deriveFont(Font.ITALIC, 11f));
+
+        JButton hotkeyApplyButton = new JButton("Apply");
+        hotkeyApplyButton.addActionListener(e -> onApplyHotkey());
+
+        JPanel hotkeyRow = new JPanel(new BorderLayout(5, 0));
+        hotkeyRow.add(new JLabel("Shortcut:"), BorderLayout.WEST);
+        hotkeyRow.add(hotkeyField, BorderLayout.CENTER);
+        hotkeyRow.add(hotkeyApplyButton, BorderLayout.EAST);
+        hotkeyRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+
+        JPanel hotkeyPanel = new JPanel();
+        hotkeyPanel.setLayout(new BoxLayout(hotkeyPanel, BoxLayout.Y_AXIS));
+        hotkeyPanel.setBorder(BorderFactory.createTitledBorder("Keyboard shortcut"));
+        hotkeyPanel.add(hotkeyEnabledCheckbox);
+        hotkeyPanel.add(Box.createVerticalStrut(5));
+        hotkeyPanel.add(hotkeyRow);
+        hotkeyPanel.add(Box.createVerticalStrut(3));
+        hotkeyPanel.add(hotkeyHint);
+
         // --- Main layout ---
+        JPanel topWrapper = new JPanel();
+        topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
+        topWrapper.add(topSection);
+        topWrapper.add(Box.createVerticalStrut(10));
+        topWrapper.add(hotkeyPanel);
+
         panel = new JPanel(new BorderLayout(0, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        panel.add(topSection, BorderLayout.NORTH);
+        panel.add(topWrapper, BorderLayout.NORTH);
         panel.add(editorPanel, BorderLayout.CENTER);
+
+        panel.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && panel.isShowing()) {
+                reloadTable();
+            }
+        });
 
         reloadTable();
     }
@@ -255,6 +306,18 @@ public class MySettingsPanel implements SettingsPanel {
         nameField.setText(row.preset.getName() + " (copy)");
         setEditorEnabled(true);
         nameField.requestFocusInWindow();
+    }
+
+    private void onApplyHotkey() {
+        boolean enabled = hotkeyEnabledCheckbox.isSelected();
+        String hotkey = hotkeyField.getText().trim();
+        if (enabled && hotkey.isEmpty()) {
+            JOptionPane.showMessageDialog(panel, "Shortcut cannot be empty.", "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        presetStore.setHotkeyEnabled(enabled);
+        presetStore.setHotkeyString(hotkey);
+        hotkeyManager.applyFromSettings();
     }
 
     private void onRestoreDefaults() {
