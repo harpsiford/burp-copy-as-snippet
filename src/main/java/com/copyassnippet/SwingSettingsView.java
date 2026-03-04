@@ -434,7 +434,7 @@ final class SwingSettingsView implements SettingsView {
         JLabel label = new JLabel(title);
         Font baseFont = UIManager.getFont("Label.font");
         Font sourceFont = baseFont != null ? baseFont : label.getFont();
-        label.setFont(sourceFont.deriveFont(Font.BOLD, Math.max(20f, sourceFont.getSize2D() + 6f)));
+        label.setFont(sourceFont.deriveFont(Font.BOLD, sourceFont.getSize2D() + 2f));
         return label;
     }
 
