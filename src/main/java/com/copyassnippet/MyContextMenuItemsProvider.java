@@ -20,11 +20,6 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
     private final PresetStore presetStore;
     private final RedactionEngine redactionEngine;
 
-    public MyContextMenuItemsProvider(PresetStore presetStore)
-    {
-        this(presetStore, new CachingRedactionEngine());
-    }
-
     MyContextMenuItemsProvider(PresetStore presetStore, RedactionEngine redactionEngine)
     {
         this.presetStore = presetStore;

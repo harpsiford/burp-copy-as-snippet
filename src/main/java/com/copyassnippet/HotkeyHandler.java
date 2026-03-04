@@ -16,10 +16,6 @@ public class HotkeyHandler implements HotKeyHandler {
     private final PresetStore presetStore;
     private final RedactionEngine redactionEngine;
 
-    public HotkeyHandler(PresetStore presetStore) {
-        this(presetStore, new CachingRedactionEngine());
-    }
-
     HotkeyHandler(PresetStore presetStore, RedactionEngine redactionEngine) {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;

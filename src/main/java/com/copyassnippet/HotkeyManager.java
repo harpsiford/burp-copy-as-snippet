@@ -11,10 +11,6 @@ public class HotkeyManager {
     private final RedactionEngine redactionEngine;
     private Registration currentRegistration;
 
-    public HotkeyManager(MontoyaApi api, PresetStore presetStore) {
-        this(api, presetStore, new CachingRedactionEngine());
-    }
-
     HotkeyManager(MontoyaApi api, PresetStore presetStore, RedactionEngine redactionEngine) {
         this.api = api;
         this.presetStore = presetStore;
