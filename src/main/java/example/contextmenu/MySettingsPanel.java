@@ -75,20 +75,24 @@ public class MySettingsPanel implements SettingsPanel {
         moveDownButton.addActionListener(e -> onMoveDown());
         restoreDefaultsButton.addActionListener(e -> onRestoreDefaults());
 
-        JPanel buttonBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        buttonBar.add(addButton);
-        buttonBar.add(deleteButton);
-        buttonBar.add(duplicateButton);
-        buttonBar.add(Box.createHorizontalStrut(10));
-        buttonBar.add(moveUpButton);
-        buttonBar.add(moveDownButton);
-        buttonBar.add(Box.createHorizontalStrut(20));
-        buttonBar.add(restoreDefaultsButton);
+        JPanel buttonBar = new JPanel();
+        buttonBar.setLayout(new BoxLayout(buttonBar, BoxLayout.Y_AXIS));
+        for (JButton btn : new JButton[]{addButton, deleteButton, duplicateButton, moveUpButton, moveDownButton, restoreDefaultsButton}) {
+            btn.setAlignmentX(Component.LEFT_ALIGNMENT);
+            btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, btn.getPreferredSize().height));
+            buttonBar.add(btn);
+            buttonBar.add(Box.createVerticalStrut(3));
+        }
+        buttonBar.add(Box.createVerticalGlue());
+
+        // Compact row height matching Burp's native tables
+        presetTable.setIntercellSpacing(new Dimension(0, 0));
+        presetTable.setRowHeight(presetTable.getFontMetrics(presetTable.getFont()).getHeight() + 2);
 
         // --- Top section (table + buttons) ---
-        JPanel topSection = new JPanel(new BorderLayout(0, 5));
+        JPanel topSection = new JPanel(new BorderLayout(5, 0));
+        topSection.add(buttonBar, BorderLayout.WEST);
         topSection.add(tableScroll, BorderLayout.CENTER);
-        topSection.add(buttonBar, BorderLayout.SOUTH);
 
         // --- Editor form ---
         nameField = new JTextField();
@@ -166,15 +170,18 @@ public class MySettingsPanel implements SettingsPanel {
         JPanel hotkeyPanel = new JPanel();
         hotkeyPanel.setLayout(new BoxLayout(hotkeyPanel, BoxLayout.Y_AXIS));
         hotkeyPanel.setBorder(BorderFactory.createTitledBorder("Keyboard shortcut (uses the first enabled preset)"));
+        hotkeyEnabledCheckbox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hotkeyRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         hotkeyPanel.add(hotkeyEnabledCheckbox);
         hotkeyPanel.add(Box.createVerticalStrut(5));
         hotkeyPanel.add(hotkeyRow);
         hotkeyPanel.add(Box.createVerticalStrut(3));
-        hotkeyPanel.add(hotkeyHint);
 
         // --- Main layout ---
         JPanel topWrapper = new JPanel();
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
+        topSection.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hotkeyPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         topWrapper.add(topSection);
         topWrapper.add(Box.createVerticalStrut(10));
         topWrapper.add(hotkeyPanel);
