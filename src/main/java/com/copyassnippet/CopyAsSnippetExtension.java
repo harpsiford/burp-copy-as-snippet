@@ -3,7 +3,7 @@ package com.copyassnippet;
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
 
-public class ContextMenu implements BurpExtension
+public class CopyAsSnippetExtension implements BurpExtension
 {
     @Override
     public void initialize(MontoyaApi api)
