@@ -259,7 +259,7 @@ public class MySettingsPanel implements SettingsPanel {
                 "Confirm delete", JOptionPane.YES_NO_OPTION);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        removePreset(row.preset.getName(), row.scope);
+        removePreset(row.preset.getId(), row.scope);
         onCancel();
         reloadTable();
     }
@@ -272,7 +272,9 @@ public class MySettingsPanel implements SettingsPanel {
         editingRow = -1;
         presetTable.clearSelection();
         presetFormPanel.setFormData(
-                PresetFormMapper.fromPreset(row.preset, PresetScope.USER).withName(row.preset.getName() + " (copy)")
+                PresetFormMapper.fromPreset(row.preset, PresetScope.USER)
+                        .withName(row.preset.getName() + " (copy)")
+                        .withoutPresetId()
         );
         setEditorEnabled(true);
         presetFormPanel.focusNameField();
@@ -295,7 +297,7 @@ public class MySettingsPanel implements SettingsPanel {
     private void swapAndPersistOrder(int from, int to) {
         List<String> order = new ArrayList<>();
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            order.add(tableModel.getRow(i).preset.getName());
+            order.add(tableModel.getRow(i).preset.getId());
         }
         String moved = order.remove(from);
         order.add(to, moved);
@@ -316,8 +318,8 @@ public class MySettingsPanel implements SettingsPanel {
     }
 
     private void onRestoreDefaults() {
-        removePreset("Default", PresetScope.USER);
-        removePreset("Default", PresetScope.PROJECT);
+        removePresetByName("Default", PresetScope.USER);
+        removePresetByName("Default", PresetScope.PROJECT);
         onCancel();
         reloadTable();
     }
@@ -327,6 +329,15 @@ public class MySettingsPanel implements SettingsPanel {
         String validationError = PresetFormMapper.firstValidationError(formData);
         if (validationError != null) {
             JOptionPane.showMessageDialog(panel, validationError, "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (presetStore.isPresetNameTaken(formData.getName(), formData.getPresetId())) {
+            JOptionPane.showMessageDialog(
+                    panel,
+                    "A preset named \"" + formData.getName().trim() + "\" already exists.",
+                    "Validation",
+                    JOptionPane.WARNING_MESSAGE
+            );
             return;
         }
 
@@ -339,13 +350,13 @@ public class MySettingsPanel implements SettingsPanel {
         }
 
         Preset preset = PresetFormMapper.toPreset(formData, enabled);
-        String savedName = preset.getName();
+        String savedPresetId = preset.getId();
 
-        // If editing an existing row and the name/scope changed, remove the old one
+        // If scope changed, remove from the old scope before saving to the new scope.
         if (editingRow >= 0) {
             PresetRow oldRow = tableModel.getRow(editingRow);
-            if (!oldRow.preset.getName().equals(savedName) || oldRow.scope != scope) {
-                removePreset(oldRow.preset.getName(), oldRow.scope);
+            if (oldRow.scope != scope) {
+                removePreset(oldRow.preset.getId(), oldRow.scope);
             }
         }
 
@@ -355,7 +366,7 @@ public class MySettingsPanel implements SettingsPanel {
         reloadTable();
         // Re-select the saved preset
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (tableModel.getRow(i).preset.getName().equals(savedName)) {
+            if (tableModel.getRow(i).preset.getId().equals(savedPresetId)) {
                 presetTable.setRowSelectionInterval(i, i);
                 break;
             }
@@ -409,7 +420,17 @@ public class MySettingsPanel implements SettingsPanel {
     private void persistEnabledToggle(PresetRow row) {
         if (row.scope.isBuiltIn()) {
             // Save as a user-level preset to persist the enabled flag
-            savePreset(row.preset, PresetScope.USER);
+            Preset userPreset = new Preset(
+                    row.preset.getName(),
+                    row.preset.getHeaderRegexes(),
+                    row.preset.getCookieRegexes(),
+                    row.preset.getParamRegexes(),
+                    row.preset.getRedactionRules(),
+                    row.preset.getReplacementString(),
+                    row.preset.getTemplate(),
+                    row.preset.isEnabled()
+            );
+            savePreset(userPreset, PresetScope.USER);
             reloadTable();
         } else {
             savePreset(row.preset, row.scope);
@@ -443,13 +464,13 @@ public class MySettingsPanel implements SettingsPanel {
         switch (scope.toEditableScope()) {
             case PROJECT:
                 List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
-                projectList.removeIf(p -> p.getName().equals(preset.getName()));
+                projectList.removeIf(existing -> existing.getId().equals(preset.getId()));
                 projectList.add(preset);
                 presetStore.setProjectPresets(projectList);
                 break;
             case USER:
                 List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
-                userList.removeIf(p -> p.getName().equals(preset.getName()));
+                userList.removeIf(existing -> existing.getId().equals(preset.getId()));
                 userList.add(preset);
                 presetStore.setUserPresets(userList);
                 break;
@@ -458,7 +479,24 @@ public class MySettingsPanel implements SettingsPanel {
         }
     }
 
-    private void removePreset(String name, PresetScope scope) {
+    private void removePreset(String presetId, PresetScope scope) {
+        switch (scope.toEditableScope()) {
+            case PROJECT:
+                List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
+                projectList.removeIf(p -> p.getId().equals(presetId));
+                presetStore.setProjectPresets(projectList);
+                break;
+            case USER:
+                List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
+                userList.removeIf(p -> p.getId().equals(presetId));
+                presetStore.setUserPresets(userList);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected editable scope: " + scope);
+        }
+    }
+
+    private void removePresetByName(String name, PresetScope scope) {
         switch (scope.toEditableScope()) {
             case PROJECT:
                 List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());

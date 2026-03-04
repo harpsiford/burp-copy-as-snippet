@@ -7,9 +7,13 @@ import burp.api.montoya.persistence.Preferences;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class Preset {
+    public static final String BUILT_IN_ID = "builtin-default";
+
+    private final String id;
     private String name;
     private List<String> headerRegexes;
     private List<String> cookieRegexes;
@@ -23,8 +27,17 @@ public class Preset {
             "HTTP request:\r\n```\r\n{{request}}\r\n```\r\n\r\nHTTP response:\r\n```\r\n{{response}}\r\n```";
     public static final String DEFAULT_REPLACEMENT = "REDACTED";
 
-    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, List<String> paramRegexes,
-                  List<RedactionRule> redactionRules, String replacementString, String template, boolean enabled) {
+    public Preset(
+            String id,
+            String name,
+            List<String> headerRegexes,
+            List<String> cookieRegexes,
+            List<String> paramRegexes,
+            List<RedactionRule> redactionRules,
+            String replacementString,
+            String template,
+            boolean enabled) {
+        this.id = normalizeId(id);
         this.name = name;
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
@@ -33,6 +46,11 @@ public class Preset {
         this.replacementString = replacementString != null ? replacementString : DEFAULT_REPLACEMENT;
         this.template = template;
         this.enabled = enabled;
+    }
+
+    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, List<String> paramRegexes,
+                  List<RedactionRule> redactionRules, String replacementString, String template, boolean enabled) {
+        this(null, name, headerRegexes, cookieRegexes, paramRegexes, redactionRules, replacementString, template, enabled);
     }
 
     public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, List<String> paramRegexes,
@@ -114,9 +132,18 @@ public class Preset {
                 new RedactionRule(RedactionRule.Type.HEADER, "X-Authorization")
         );
 
-        return new Preset("Default", defaultHeaders, defaultCookies, defaultParams,
+        return new Preset(BUILT_IN_ID, "Default", defaultHeaders, defaultCookies, defaultParams,
                 defaultRedactions, DEFAULT_REPLACEMENT, DEFAULT_TEMPLATE, true);
     }
+
+    private static String normalizeId(String id) {
+        if (id == null || id.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return id;
+    }
+
+    public String getId() { return id; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -143,6 +170,7 @@ public class Preset {
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
     public void saveTo(PersistedObject obj) {
+        obj.setString("id", id);
         obj.setString("name", name);
         obj.setString("template", template);
         obj.setString("enabled", String.valueOf(enabled));
@@ -166,9 +194,14 @@ public class Preset {
     }
 
     public static Preset loadFrom(PersistedObject obj) {
+        return loadFrom(obj, null);
+    }
+
+    public static Preset loadFrom(PersistedObject obj, String fallbackId) {
         if (obj == null) return null;
         String name = obj.getString("name");
         if (name == null) return null;
+        String id = obj.getString("id");
 
         PersistedList<String> headers = obj.getStringList("headerRegexes");
         PersistedList<String> cookies = obj.getStringList("cookieRegexes");
@@ -189,6 +222,7 @@ public class Preset {
         }
 
         return new Preset(
+                id != null ? id : fallbackId,
                 name,
                 headers != null ? new ArrayList<>(headers) : List.of(),
                 cookies != null ? new ArrayList<>(cookies) : List.of(),
@@ -201,6 +235,7 @@ public class Preset {
     }
 
     public void saveTo(Preferences prefs, String keyPrefix) {
+        prefs.setString(keyPrefix + ".id", id);
         prefs.setString(keyPrefix + ".name", name);
         prefs.setString(keyPrefix + ".headerRegexes", String.join("\n", headerRegexes));
         prefs.setString(keyPrefix + ".cookieRegexes", String.join("\n", cookieRegexes));
@@ -213,6 +248,11 @@ public class Preset {
     }
 
     public static Preset loadFrom(Preferences prefs, String keyPrefix) {
+        return loadFrom(prefs, keyPrefix, null);
+    }
+
+    public static Preset loadFrom(Preferences prefs, String keyPrefix, String fallbackId) {
+        String id = prefs.getString(keyPrefix + ".id");
         String name = prefs.getString(keyPrefix + ".name");
         if (name == null) return null;
 
@@ -235,6 +275,7 @@ public class Preset {
         }
 
         return new Preset(
+                id != null ? id : fallbackId,
                 name,
                 headersRaw != null && !headersRaw.isEmpty() ? List.of(headersRaw.split("\n")) : List.of(),
                 cookiesRaw != null && !cookiesRaw.isEmpty() ? List.of(cookiesRaw.split("\n")) : List.of(),
@@ -251,11 +292,11 @@ public class Preset {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Preset preset = (Preset) o;
-        return Objects.equals(name, preset.name);
+        return Objects.equals(id, preset.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name);
+        return Objects.hash(id);
     }
 }

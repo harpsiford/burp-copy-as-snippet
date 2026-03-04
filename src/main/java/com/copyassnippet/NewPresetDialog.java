@@ -32,19 +32,27 @@ public class NewPresetDialog {
                         "Validation", JOptionPane.WARNING_MESSAGE);
                 continue;
             }
+            if (presetStore.isPresetNameTaken(formData.getName(), formData.getPresetId())) {
+                JOptionPane.showMessageDialog(
+                        parent,
+                        "A preset named \"" + formData.getName().trim() + "\" already exists.",
+                        "Validation",
+                        JOptionPane.WARNING_MESSAGE
+                );
+                continue;
+            }
 
             Preset preset = PresetFormMapper.toPreset(formData, true);
             PresetScope scope = formData.getScope();
-            String name = preset.getName();
 
             if (scope == PresetScope.PROJECT) {
                 List<Preset> list = new ArrayList<>(presetStore.getProjectPresets());
-                list.removeIf(p -> p.getName().equals(name));
+                list.removeIf(existing -> existing.getId().equals(preset.getId()));
                 list.add(preset);
                 presetStore.setProjectPresets(list);
             } else {
                 List<Preset> list = new ArrayList<>(presetStore.getUserPresets());
-                list.removeIf(p -> p.getName().equals(name));
+                list.removeIf(existing -> existing.getId().equals(preset.getId()));
                 list.add(preset);
                 presetStore.setUserPresets(list);
             }

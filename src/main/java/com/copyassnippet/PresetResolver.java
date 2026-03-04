@@ -39,7 +39,7 @@ class PresetResolver {
             merged.put(preset.getName(), new ResolvedPreset(preset, PresetScope.PROJECT));
         }
 
-        return applyOrder(merged, order);
+        return applyOrder(new ArrayList<>(merged.values()), order);
     }
 
     List<Preset> resolvePresets(List<Preset> userPresets, List<Preset> projectPresets, List<String> order) {
@@ -50,15 +50,19 @@ class PresetResolver {
         return result;
     }
 
-    private static <T> List<T> applyOrder(Map<String, T> presetsByName, List<String> order) {
+    private static List<ResolvedPreset> applyOrder(List<ResolvedPreset> presets, List<String> order) {
         if (order == null || order.isEmpty()) {
-            return new ArrayList<>(presetsByName.values());
+            return presets;
         }
 
-        Map<String, T> remaining = new LinkedHashMap<>(presetsByName);
-        List<T> ordered = new ArrayList<>();
-        for (String name : order) {
-            T preset = remaining.remove(name);
+        Map<String, ResolvedPreset> remaining = new LinkedHashMap<>();
+        for (ResolvedPreset preset : presets) {
+            remaining.put(preset.getPreset().getId(), preset);
+        }
+
+        List<ResolvedPreset> ordered = new ArrayList<>();
+        for (String presetId : order) {
+            ResolvedPreset preset = remaining.remove(presetId);
             if (preset != null) {
                 ordered.add(preset);
             }

@@ -18,6 +18,7 @@ class PresetFormPanel extends JPanel {
     private final JButton ruleAddButton;
     private final JButton ruleDeleteButton;
     private final JTextArea templateArea;
+    private String currentPresetId;
     private boolean formEnabled = true;
 
     PresetFormPanel() {
@@ -128,6 +129,7 @@ class PresetFormPanel extends JPanel {
     }
 
     void setFormData(PresetFormData formData) {
+        currentPresetId = formData.getPresetId();
         nameField.setText(formData.getName());
         scopeCombo.setSelectedItem(formData.getScope().toEditableScope());
         headerRegexesArea.setText(String.join("\n", formData.getHeaderRegexes()));
@@ -144,6 +146,7 @@ class PresetFormPanel extends JPanel {
         }
 
         return new PresetFormData(
+                currentPresetId,
                 nameField.getText(),
                 (PresetScope) scopeCombo.getSelectedItem(),
                 parseLines(headerRegexesArea.getText()),

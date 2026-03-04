@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class PresetFormData {
+    private final String presetId;
     private final String name;
     private final PresetScope scope;
     private final List<String> headerRegexes;
@@ -14,6 +15,7 @@ final class PresetFormData {
     private final String template;
 
     PresetFormData(
+            String presetId,
             String name,
             PresetScope scope,
             List<String> headerRegexes,
@@ -22,6 +24,7 @@ final class PresetFormData {
             String replacementString,
             List<RedactionRule> redactionRules,
             String template) {
+        this.presetId = presetId;
         this.name = name != null ? name : "";
         this.scope = scope != null ? scope : PresetScope.USER;
         this.headerRegexes = new ArrayList<>(headerRegexes);
@@ -30,6 +33,10 @@ final class PresetFormData {
         this.replacementString = replacementString != null ? replacementString : Preset.DEFAULT_REPLACEMENT;
         this.redactionRules = new ArrayList<>(redactionRules);
         this.template = template != null ? template : "";
+    }
+
+    String getPresetId() {
+        return presetId;
     }
 
     String getName() {
@@ -66,7 +73,22 @@ final class PresetFormData {
 
     PresetFormData withName(String newName) {
         return new PresetFormData(
+                presetId,
                 newName,
+                scope,
+                headerRegexes,
+                cookieRegexes,
+                paramRegexes,
+                replacementString,
+                redactionRules,
+                template
+        );
+    }
+
+    PresetFormData withoutPresetId() {
+        return new PresetFormData(
+                null,
+                name,
                 scope,
                 headerRegexes,
                 cookieRegexes,

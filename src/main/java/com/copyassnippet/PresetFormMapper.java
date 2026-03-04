@@ -8,11 +8,12 @@ final class PresetFormMapper {
     }
 
     static PresetFormData forNewPreset() {
-        return fromPreset(Preset.createDefault(), PresetScope.USER).withName("");
+        return fromPreset(Preset.createDefault(), PresetScope.USER).withName("").withoutPresetId();
     }
 
     static PresetFormData empty() {
         return new PresetFormData(
+                null,
                 "",
                 PresetScope.USER,
                 List.of(),
@@ -26,6 +27,7 @@ final class PresetFormMapper {
 
     static PresetFormData fromPreset(Preset preset, PresetScope scope) {
         return new PresetFormData(
+                preset.getId(),
                 preset.getName(),
                 scope,
                 preset.getHeaderRegexes(),
@@ -52,6 +54,7 @@ final class PresetFormMapper {
 
     static Preset toPreset(PresetFormData formData, boolean enabled) {
         return new Preset(
+                formData.getPresetId(),
                 formData.getName().trim(),
                 formData.getHeaderRegexes(),
                 formData.getCookieRegexes(),

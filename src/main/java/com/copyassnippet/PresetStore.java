@@ -5,19 +5,39 @@ import burp.api.montoya.persistence.PersistedList;
 import burp.api.montoya.persistence.PersistedObject;
 import burp.api.montoya.persistence.Preferences;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-
+import java.util.Map;
+import java.util.UUID;
 
 public class PresetStore {
     private static final String USER_PRESET_PREFIX = "user.preset";
-    private static final String USER_PRESET_NAMES_KEY = "user.preset.names";
-    private static final String PROJECT_PRESETS_KEY = "project.presets";
+    private static final String USER_PRESET_IDS_KEY = "user.preset.ids";
+    private static final String USER_PRESET_NAMES_KEY_LEGACY = "user.preset.names";
 
-    private static final String PRESET_ORDER_KEY = "preset.order";
+    private static final String PROJECT_PRESETS_KEY = "project.presets";
+    private static final String PROJECT_PRESET_IDS_LIST_KEY = "ids";
+    private static final String PROJECT_PRESET_NAMES_LIST_KEY_LEGACY = "names";
+
+    private static final String PRESET_ORDER_IDS_KEY = "preset.order.ids";
+    private static final String PRESET_ORDER_KEY_LEGACY = "preset.order";
 
     private static final String HOTKEY_ENABLED_KEY = "hotkey.enabled";
     private static final String HOTKEY_STRING_KEY = "hotkey.string";
+
+    private static final String[] USER_PRESET_FIELD_SUFFIXES = {
+            ".id",
+            ".name",
+            ".headerRegexes",
+            ".cookieRegexes",
+            ".paramRegexes",
+            ".template",
+            ".enabled",
+            ".replacementString",
+            ".redactionRules"
+    };
 
     public static final String DEFAULT_HOTKEY = "Ctrl+Shift+C";
 
@@ -37,101 +57,159 @@ public class PresetStore {
 
     public List<Preset> getUserPresets() {
         List<Preset> result = new ArrayList<>();
-        String namesRaw = preferences.getString(USER_PRESET_NAMES_KEY);
-        if (namesRaw == null || namesRaw.isEmpty()) return result;
+        List<String> presetIds = parseMultiline(preferences.getString(USER_PRESET_IDS_KEY));
+        if (!presetIds.isEmpty()) {
+            for (String presetId : presetIds) {
+                String key = userPresetKey(presetId);
+                Preset preset = Preset.loadFrom(preferences, key, presetId);
+                if (preset != null) {
+                    result.add(preset);
+                }
+            }
+            return result;
+        }
 
-        for (String name : namesRaw.split("\n")) {
-            String key = USER_PRESET_PREFIX + "." + name;
-            Preset p = Preset.loadFrom(preferences, key);
-            if (p != null) result.add(p);
+        List<String> legacyNames = parseMultiline(preferences.getString(USER_PRESET_NAMES_KEY_LEGACY));
+        for (String legacyName : legacyNames) {
+            String key = userPresetKey(legacyName);
+            Preset preset = Preset.loadFrom(preferences, key, legacyUserPresetId(legacyName));
+            if (preset != null) {
+                result.add(preset);
+            }
         }
         return result;
     }
 
     public void setUserPresets(List<Preset> presets) {
-        String oldNamesRaw = preferences.getString(USER_PRESET_NAMES_KEY);
-        if (oldNamesRaw != null && !oldNamesRaw.isEmpty()) {
-            for (String name : oldNamesRaw.split("\n")) {
-                String key = USER_PRESET_PREFIX + "." + name;
-                preferences.setString(key + ".name", null);
-                preferences.setString(key + ".headerRegexes", null);
-                preferences.setString(key + ".cookieRegexes", null);
-                preferences.setString(key + ".template", null);
-            }
+        for (String presetId : parseMultiline(preferences.getString(USER_PRESET_IDS_KEY))) {
+            clearUserPresetEntry(userPresetKey(presetId));
         }
 
-        List<String> names = new ArrayList<>();
-        for (Preset p : presets) {
-            names.add(p.getName());
-            String key = USER_PRESET_PREFIX + "." + p.getName();
-            p.saveTo(preferences, key);
+        for (String legacyName : parseMultiline(preferences.getString(USER_PRESET_NAMES_KEY_LEGACY))) {
+            clearUserPresetEntry(userPresetKey(legacyName));
         }
-        preferences.setString(USER_PRESET_NAMES_KEY, String.join("\n", names));
+
+        List<String> presetIds = new ArrayList<>();
+        for (Preset preset : presets) {
+            presetIds.add(preset.getId());
+            preset.saveTo(preferences, userPresetKey(preset.getId()));
+        }
+
+        preferences.setString(USER_PRESET_IDS_KEY, String.join("\n", presetIds));
+        preferences.setString(USER_PRESET_NAMES_KEY_LEGACY, null);
     }
 
     public List<Preset> getProjectPresets() {
         List<Preset> result = new ArrayList<>();
         PersistedObject container = extensionData.getChildObject(PROJECT_PRESETS_KEY);
-        if (container == null) return result;
-
-        PersistedList<String> names = container.getStringList("names");
-        if (names == null) return result;
-
-        for (String name : names) {
-            PersistedObject child = container.getChildObject(name);
-            Preset p = Preset.loadFrom(child);
-            if (p != null) result.add(p);
+        if (container == null) {
+            return result;
         }
+
+        PersistedList<String> presetIds = container.getStringList(PROJECT_PRESET_IDS_LIST_KEY);
+        if (presetIds != null && !presetIds.isEmpty()) {
+            for (String presetId : presetIds) {
+                PersistedObject child = container.getChildObject(presetId);
+                Preset preset = Preset.loadFrom(child, presetId);
+                if (preset != null) {
+                    result.add(preset);
+                }
+            }
+            return result;
+        }
+
+        PersistedList<String> legacyNames = container.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY);
+        if (legacyNames == null) {
+            return result;
+        }
+
+        for (String legacyName : legacyNames) {
+            PersistedObject child = container.getChildObject(legacyName);
+            Preset preset = Preset.loadFrom(child, legacyProjectPresetId(legacyName));
+            if (preset != null) {
+                result.add(preset);
+            }
+        }
+
         return result;
     }
 
     public void setProjectPresets(List<Preset> presets) {
-        PersistedObject container = extensionData.getChildObject(PROJECT_PRESETS_KEY);
-        if (container != null) {
-            PersistedList<String> oldNames = container.getStringList("names");
-            if (oldNames != null) {
-                for (String name : oldNames) {
-                    container.deleteChildObject(name);
-                }
-            }
+        PersistedObject existingContainer = extensionData.getChildObject(PROJECT_PRESETS_KEY);
+        if (existingContainer != null) {
+            deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_IDS_LIST_KEY), existingContainer);
+            deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY), existingContainer);
         }
 
-        container = PersistedObject.persistedObject();
-        List<String> names = new ArrayList<>();
-        for (Preset p : presets) {
-            names.add(p.getName());
+        PersistedObject container = PersistedObject.persistedObject();
+        List<String> presetIds = new ArrayList<>();
+        for (Preset preset : presets) {
+            presetIds.add(preset.getId());
             PersistedObject child = PersistedObject.persistedObject();
-            p.saveTo(child);
-            container.setChildObject(p.getName(), child);
+            preset.saveTo(child);
+            container.setChildObject(preset.getId(), child);
         }
 
-        PersistedList<String> namesList = PersistedList.persistedStringList();
-        namesList.addAll(names);
-        container.setStringList("names", namesList);
+        PersistedList<String> idsList = PersistedList.persistedStringList();
+        idsList.addAll(presetIds);
+        container.setStringList(PROJECT_PRESET_IDS_LIST_KEY, idsList);
 
         extensionData.setChildObject(PROJECT_PRESETS_KEY, container);
     }
 
     public List<Preset> getResolvedPresets() {
-        return presetResolver.resolvePresets(getUserPresets(), getProjectPresets(), getPresetOrder());
+        List<Preset> userPresets = getUserPresets();
+        List<Preset> projectPresets = getProjectPresets();
+        List<String> order = getPresetOrder(userPresets, projectPresets);
+        return presetResolver.resolvePresets(userPresets, projectPresets, order);
     }
 
     List<PresetResolver.ResolvedPreset> getResolvedPresetEntries() {
-        return presetResolver.resolve(getUserPresets(), getProjectPresets(), getPresetOrder());
+        List<Preset> userPresets = getUserPresets();
+        List<Preset> projectPresets = getProjectPresets();
+        List<String> order = getPresetOrder(userPresets, projectPresets);
+        return presetResolver.resolve(userPresets, projectPresets, order);
     }
 
     public List<String> getPresetOrder() {
-        String raw = preferences.getString(PRESET_ORDER_KEY);
-        if (raw == null || raw.isEmpty()) return new ArrayList<>();
-        List<String> result = new ArrayList<>();
-        for (String name : raw.split("\n")) {
-            if (!name.isEmpty()) result.add(name);
-        }
-        return result;
+        return getPresetOrder(getUserPresets(), getProjectPresets());
     }
 
-    public void setPresetOrder(List<String> order) {
-        preferences.setString(PRESET_ORDER_KEY, String.join("\n", order));
+    private List<String> getPresetOrder(List<Preset> userPresets, List<Preset> projectPresets) {
+        List<String> orderIds = parseMultiline(preferences.getString(PRESET_ORDER_IDS_KEY));
+        if (!orderIds.isEmpty()) {
+            return orderIds;
+        }
+
+        List<String> legacyOrderNames = parseMultiline(preferences.getString(PRESET_ORDER_KEY_LEGACY));
+        if (legacyOrderNames.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<PresetResolver.ResolvedPreset> resolvedPresets = presetResolver.resolve(userPresets, projectPresets, List.of());
+        Map<String, String> idByName = new LinkedHashMap<>();
+        for (PresetResolver.ResolvedPreset resolvedPreset : resolvedPresets) {
+            idByName.put(resolvedPreset.getPreset().getName(), resolvedPreset.getPreset().getId());
+        }
+
+        List<String> migratedOrderIds = new ArrayList<>();
+        for (String presetName : legacyOrderNames) {
+            String presetId = idByName.get(presetName);
+            if (presetId != null) {
+                migratedOrderIds.add(presetId);
+            }
+        }
+
+        if (!migratedOrderIds.isEmpty()) {
+            preferences.setString(PRESET_ORDER_IDS_KEY, String.join("\n", migratedOrderIds));
+        }
+
+        return migratedOrderIds;
+    }
+
+    public void setPresetOrder(List<String> orderIds) {
+        preferences.setString(PRESET_ORDER_IDS_KEY, String.join("\n", orderIds));
+        preferences.setString(PRESET_ORDER_KEY_LEGACY, null);
     }
 
     public boolean isHotkeyEnabled() {
@@ -150,5 +228,66 @@ public class PresetStore {
 
     public void setHotkeyString(String hotkey) {
         preferences.setString(HOTKEY_STRING_KEY, hotkey);
+    }
+
+    public boolean isPresetNameTaken(String presetName, String excludedPresetId) {
+        String candidate = presetName != null ? presetName.trim() : "";
+        if (candidate.isEmpty()) {
+            return false;
+        }
+
+        for (PresetResolver.ResolvedPreset resolvedPreset : getResolvedPresetEntries()) {
+            Preset preset = resolvedPreset.getPreset();
+            if (preset.getName().equals(candidate) && !preset.getId().equals(excludedPresetId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static String userPresetKey(String storageKeyPart) {
+        return USER_PRESET_PREFIX + "." + storageKeyPart;
+    }
+
+    private void clearUserPresetEntry(String keyPrefix) {
+        for (String fieldSuffix : USER_PRESET_FIELD_SUFFIXES) {
+            preferences.setString(keyPrefix + fieldSuffix, null);
+        }
+    }
+
+    private static void deleteProjectChildren(PersistedList<String> keys, PersistedObject container) {
+        if (keys == null) {
+            return;
+        }
+        for (String key : keys) {
+            container.deleteChildObject(key);
+        }
+    }
+
+    private static List<String> parseMultiline(String raw) {
+        List<String> result = new ArrayList<>();
+        if (raw == null || raw.isEmpty()) {
+            return result;
+        }
+
+        for (String value : raw.split("\n")) {
+            if (!value.isEmpty()) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    private static String legacyUserPresetId(String legacyName) {
+        return deterministicLegacyId("user:" + legacyName);
+    }
+
+    private static String legacyProjectPresetId(String legacyName) {
+        return deterministicLegacyId("project:" + legacyName);
+    }
+
+    private static String deterministicLegacyId(String seed) {
+        return "legacy-" + UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
 }
