@@ -1,0 +1,280 @@
+package com.copyassnippet;
+
+import java.util.ArrayList;
+import java.util.List;
+
+final class SettingsPresenter implements SettingsView.Listener {
+    private final SettingsView view;
+    private final PresetApplicationService presetService;
+    private final HotkeySettingsService hotkeySettingsService;
+
+    private int editingRow = -1;
+    private boolean addingNew = false;
+
+    SettingsPresenter(
+            SettingsView view,
+            PresetApplicationService presetService,
+            HotkeySettingsService hotkeySettingsService
+    ) {
+        this.view = view;
+        this.presetService = presetService;
+        this.hotkeySettingsService = hotkeySettingsService;
+
+        this.view.setListener(this);
+        this.view.setHotkeyState(hotkeySettingsService.currentSettings());
+
+        clearEditor();
+        view.setEditorEnabled(false);
+        view.setPresetActions(false, false, false, false);
+        reloadTable();
+    }
+
+    @Override
+    public void onAdd() {
+        addingNew = true;
+        editingRow = -1;
+        view.clearSelection();
+        view.setEditorFormData(PresetFormMapper.forNewPreset());
+        view.setEditorEnabled(true);
+        view.focusEditorNameField();
+    }
+
+    @Override
+    public void onDelete() {
+        int selectedRow = selectedRowForRowAction();
+        if (selectedRow < 0) {
+            view.showValidationWarning("Select a preset to delete.");
+            return;
+        }
+
+        PresetRow row = view.rowAt(selectedRow);
+        if (row.getScope().isBuiltIn()) {
+            view.showValidationWarning("The built-in preset cannot be deleted.");
+            return;
+        }
+
+        if (!view.confirmDelete(row.getPreset().getName())) {
+            return;
+        }
+
+        presetService.removePreset(row.getPreset().getId(), row.getScope());
+        onCancel();
+        reloadTable();
+    }
+
+    @Override
+    public void onDuplicate() {
+        int selectedRow = view.selectedRow();
+        if (selectedRow < 0) {
+            return;
+        }
+
+        PresetRow row = view.rowAt(selectedRow);
+        addingNew = true;
+        editingRow = -1;
+        view.clearSelection();
+        view.setEditorFormData(
+                PresetFormMapper.fromPreset(row.getPreset(), PresetScope.USER)
+                        .withName(row.getPreset().getName() + " (copy)")
+                        .withoutPresetId()
+        );
+        view.setEditorEnabled(true);
+        view.focusEditorNameField();
+    }
+
+    @Override
+    public void onMoveUp() {
+        int selectedRow = view.selectedRow();
+        if (selectedRow <= 0) {
+            return;
+        }
+
+        swapAndPersistOrder(selectedRow, selectedRow - 1);
+        view.selectRow(selectedRow - 1);
+    }
+
+    @Override
+    public void onMoveDown() {
+        int selectedRow = view.selectedRow();
+        if (selectedRow < 0 || selectedRow >= view.rowCount() - 1) {
+            return;
+        }
+
+        swapAndPersistOrder(selectedRow, selectedRow + 1);
+        view.selectRow(selectedRow + 1);
+    }
+
+    @Override
+    public void onRestoreDefaults() {
+        presetService.clearAllSettings();
+        hotkeySettingsService.applyFromStore();
+        view.setHotkeyState(hotkeySettingsService.currentSettings());
+        onCancel();
+        reloadTable();
+    }
+
+    @Override
+    public void onSave() {
+        PresetFormData formData = view.getEditorFormData();
+        String validationError = PresetFormMapper.firstValidationError(formData);
+        if (validationError != null) {
+            view.showValidationWarning(validationError);
+            return;
+        }
+
+        if (presetService.isPresetNameTaken(formData.getName(), formData.getPresetId())) {
+            view.showValidationWarning("A preset named \"" + formData.getName().trim() + "\" already exists.");
+            return;
+        }
+
+        PresetScope scope = formData.getScope();
+        boolean enabled = true;
+        if (editingRow >= 0) {
+            enabled = view.rowAt(editingRow).getPreset().isEnabled();
+        }
+
+        Preset preset = PresetFormMapper.toPreset(formData, enabled);
+        String savedPresetId = preset.getId();
+
+        if (editingRow >= 0) {
+            PresetRow oldRow = view.rowAt(editingRow);
+            if (oldRow.getScope() != scope) {
+                presetService.removePreset(oldRow.getPreset().getId(), oldRow.getScope());
+            }
+        }
+
+        presetService.savePreset(preset, scope);
+        addingNew = false;
+        editingRow = -1;
+        reloadTable();
+        reselectPreset(savedPresetId);
+    }
+
+    @Override
+    public void onCancel() {
+        addingNew = false;
+        editingRow = -1;
+
+        int selectedRow = view.selectedRow();
+        if (selectedRow >= 0) {
+            showPresetInEditor(view.rowAt(selectedRow));
+            return;
+        }
+
+        clearEditor();
+        view.setEditorEnabled(false);
+    }
+
+    @Override
+    public void onApplyHotkey() {
+        HotkeySettingsState state = view.getHotkeyState();
+        if (state.isEnabled() && state.getHotkey().isEmpty()) {
+            view.showValidationWarning("Shortcut cannot be empty.");
+            return;
+        }
+
+        hotkeySettingsService.apply(state);
+    }
+
+    @Override
+    public void onHotkeyEnabledToggled(boolean enabled) {
+        hotkeySettingsService.setEnabled(enabled);
+    }
+
+    @Override
+    public void onSelectionChanged() {
+        if (addingNew) {
+            return;
+        }
+
+        int selectedRow = view.selectedRow();
+        if (selectedRow < 0) {
+            view.setPresetActions(false, false, false, false);
+            clearEditor();
+            view.setEditorEnabled(false);
+            return;
+        }
+
+        PresetRow row = view.rowAt(selectedRow);
+        boolean builtIn = row.getScope().isBuiltIn();
+
+        view.setPresetActions(
+                !builtIn,
+                true,
+                selectedRow > 0,
+                selectedRow < view.rowCount() - 1
+        );
+
+        editingRow = builtIn ? -1 : selectedRow;
+        showPresetInEditor(row);
+    }
+
+    @Override
+    public void onPresetEnabledToggled(int rowIndex, boolean enabled) {
+        if (rowIndex < 0 || rowIndex >= view.rowCount()) {
+            return;
+        }
+
+        PresetRow row = view.rowAt(rowIndex);
+        presetService.persistEnabledToggle(row, enabled);
+        if (row.getScope().isBuiltIn()) {
+            reloadTable();
+            if (rowIndex < view.rowCount()) {
+                view.selectRow(rowIndex);
+            }
+        }
+    }
+
+    @Override
+    public void onViewShown() {
+        reloadTable();
+    }
+
+    private void swapAndPersistOrder(int from, int to) {
+        List<String> order = new ArrayList<>();
+        for (int index = 0; index < view.rowCount(); index++) {
+            order.add(view.rowAt(index).getPreset().getId());
+        }
+
+        String movedPresetId = order.remove(from);
+        order.add(to, movedPresetId);
+        presetService.setPresetOrder(order);
+        reloadTable();
+    }
+
+    private void reloadTable() {
+        view.setRows(presetService.listResolvedRows());
+    }
+
+    private void clearEditor() {
+        view.setEditorFormData(PresetFormMapper.empty());
+    }
+
+    private void showPresetInEditor(PresetRow row) {
+        boolean builtIn = row.getScope().isBuiltIn();
+        view.setEditorFormData(PresetFormMapper.fromPreset(row.getPreset(), row.getScope()));
+        view.setEditorEnabled(!builtIn);
+    }
+
+    private void reselectPreset(String presetId) {
+        for (int index = 0; index < view.rowCount(); index++) {
+            if (view.rowAt(index).getPreset().getId().equals(presetId)) {
+                view.selectRow(index);
+                break;
+            }
+        }
+    }
+
+    private int selectedRowForRowAction() {
+        int selectedRow = view.selectedRow();
+        if (selectedRow >= 0) {
+            return selectedRow;
+        }
+
+        if (editingRow >= 0 && editingRow < view.rowCount()) {
+            return editingRow;
+        }
+
+        return -1;
+    }
+}

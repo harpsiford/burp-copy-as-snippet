@@ -38,7 +38,7 @@ class PresetFormPanel extends JPanel {
         paramRegexesArea = new JTextArea(6, 20);
         paramRegexesArea.setFont(textAreaFont);
 
-        replacementStringField = new JTextField(Preset.DEFAULT_REPLACEMENT, 20);
+        replacementStringField = new JTextField(DefaultPresetFactory.DEFAULT_REPLACEMENT, 20);
         replacementStringField.setFont(textFieldFont);
 
         ruleTableModel = new RedactionRuleTableModel();

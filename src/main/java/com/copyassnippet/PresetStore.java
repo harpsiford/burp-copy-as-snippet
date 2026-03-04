@@ -61,7 +61,7 @@ public class PresetStore {
         if (!presetIds.isEmpty()) {
             for (String presetId : presetIds) {
                 String key = userPresetKey(presetId);
-                Preset preset = Preset.loadFrom(preferences, key, presetId);
+                Preset preset = PresetPreferencesSerializer.load(preferences, key, presetId);
                 if (preset != null) {
                     result.add(preset);
                 }
@@ -72,7 +72,7 @@ public class PresetStore {
         List<String> legacyNames = parseMultiline(preferences.getString(USER_PRESET_NAMES_KEY_LEGACY));
         for (String legacyName : legacyNames) {
             String key = userPresetKey(legacyName);
-            Preset preset = Preset.loadFrom(preferences, key, legacyUserPresetId(legacyName));
+            Preset preset = PresetPreferencesSerializer.load(preferences, key, legacyUserPresetId(legacyName));
             if (preset != null) {
                 result.add(preset);
             }
@@ -92,7 +92,7 @@ public class PresetStore {
         List<String> presetIds = new ArrayList<>();
         for (Preset preset : presets) {
             presetIds.add(preset.getId());
-            preset.saveTo(preferences, userPresetKey(preset.getId()));
+            PresetPreferencesSerializer.save(preferences, userPresetKey(preset.getId()), preset);
         }
 
         preferences.setString(USER_PRESET_IDS_KEY, String.join("\n", presetIds));
@@ -110,7 +110,7 @@ public class PresetStore {
         if (presetIds != null && !presetIds.isEmpty()) {
             for (String presetId : presetIds) {
                 PersistedObject child = container.getChildObject(presetId);
-                Preset preset = Preset.loadFrom(child, presetId);
+                Preset preset = PresetPersistedObjectSerializer.load(child, presetId);
                 if (preset != null) {
                     result.add(preset);
                 }
@@ -125,7 +125,7 @@ public class PresetStore {
 
         for (String legacyName : legacyNames) {
             PersistedObject child = container.getChildObject(legacyName);
-            Preset preset = Preset.loadFrom(child, legacyProjectPresetId(legacyName));
+            Preset preset = PresetPersistedObjectSerializer.load(child, legacyProjectPresetId(legacyName));
             if (preset != null) {
                 result.add(preset);
             }
@@ -146,7 +146,7 @@ public class PresetStore {
         for (Preset preset : presets) {
             presetIds.add(preset.getId());
             PersistedObject child = PersistedObject.persistedObject();
-            preset.saveTo(child);
+            PresetPersistedObjectSerializer.save(child, preset);
             container.setChildObject(preset.getId(), child);
         }
 
@@ -223,7 +223,7 @@ public class PresetStore {
 
     public String getHotkeyString() {
         String val = preferences.getString(HOTKEY_STRING_KEY);
-        return val != null ? val : DEFAULT_HOTKEY;
+        return val == null || val.isBlank() ? DEFAULT_HOTKEY : val;
     }
 
     public void setHotkeyString(String hotkey) {
@@ -246,8 +246,37 @@ public class PresetStore {
         return false;
     }
 
+    public void resetAllSettings() {
+        clearUserPresetSettings();
+        extensionData.deleteChildObject(PROJECT_PRESETS_KEY);
+
+        preferences.deleteString(PRESET_ORDER_IDS_KEY);
+        preferences.deleteString(PRESET_ORDER_KEY_LEGACY);
+        preferences.deleteString(HOTKEY_ENABLED_KEY);
+        preferences.deleteString(HOTKEY_STRING_KEY);
+    }
+
+    /**
+     * Kept for compatibility with older code paths.
+     * Intentionally no-op to avoid unexpected wipes during extension unload/reload.
+     */
+    @Deprecated
+    public void clearAllSettings() {
+        // no-op
+    }
+
     private static String userPresetKey(String storageKeyPart) {
         return USER_PRESET_PREFIX + "." + storageKeyPart;
+    }
+
+    private void clearUserPresetSettings() {
+        for (String key : new ArrayList<>(preferences.stringKeys())) {
+            if (key.startsWith(USER_PRESET_PREFIX + ".")) {
+                preferences.deleteString(key);
+            }
+        }
+        preferences.deleteString(USER_PRESET_IDS_KEY);
+        preferences.deleteString(USER_PRESET_NAMES_KEY_LEGACY);
     }
 
     private void clearUserPresetEntry(String keyPrefix) {

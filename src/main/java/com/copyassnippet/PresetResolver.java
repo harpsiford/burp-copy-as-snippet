@@ -28,7 +28,7 @@ class PresetResolver {
     List<ResolvedPreset> resolve(List<Preset> userPresets, List<Preset> projectPresets, List<String> order) {
         Map<String, ResolvedPreset> merged = new LinkedHashMap<>();
 
-        Preset builtIn = Preset.createDefault();
+        Preset builtIn = DefaultPresetFactory.createBuiltInPreset();
         merged.put(builtIn.getName(), new ResolvedPreset(builtIn, PresetScope.BUILT_IN));
 
         for (Preset preset : userPresets) {

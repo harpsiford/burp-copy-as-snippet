@@ -30,7 +30,7 @@ final class PresetFormData {
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
         this.paramRegexes = new ArrayList<>(paramRegexes);
-        this.replacementString = replacementString != null ? replacementString : Preset.DEFAULT_REPLACEMENT;
+        this.replacementString = replacementString != null ? replacementString : DefaultPresetFactory.DEFAULT_REPLACEMENT;
         this.redactionRules = new ArrayList<>(redactionRules);
         this.template = template != null ? template : "";
     }

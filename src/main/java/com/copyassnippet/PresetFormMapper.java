@@ -8,7 +8,9 @@ final class PresetFormMapper {
     }
 
     static PresetFormData forNewPreset() {
-        return fromPreset(Preset.createDefault(), PresetScope.USER).withName("").withoutPresetId();
+        return fromPreset(DefaultPresetFactory.createBuiltInPreset(), PresetScope.USER)
+                .withName("")
+                .withoutPresetId();
     }
 
     static PresetFormData empty() {
@@ -19,7 +21,7 @@ final class PresetFormMapper {
                 List.of(),
                 List.of(),
                 List.of(),
-                Preset.DEFAULT_REPLACEMENT,
+                DefaultPresetFactory.DEFAULT_REPLACEMENT,
                 List.of(),
                 ""
         );
