@@ -23,10 +23,12 @@ public class PresetStore {
     private static final String USER_PRESET_NAMES_KEY = "user.preset.names";
     private static final String PROJECT_PRESETS_KEY = "project.presets";
 
+    private static final String PRESET_ORDER_KEY = "preset.order";
+
     private static final String HOTKEY_ENABLED_KEY = "hotkey.enabled";
     private static final String HOTKEY_STRING_KEY = "hotkey.string";
 
-    public static final String DEFAULT_HOTKEY = "ctrl shift pressed C";
+    public static final String DEFAULT_HOTKEY = "Ctrl+Shift+C";
 
     private final Preferences preferences;
     private final PersistedObject extensionData;
@@ -126,6 +128,7 @@ public class PresetStore {
     /**
      * Returns the merged list of presets. Project-level presets override user-level
      * ones with the same name. If no presets exist at all, returns the built-in Default.
+     * Respects the persisted display order.
      */
     public List<Preset> getResolvedPresets() {
         Map<String, Preset> merged = new LinkedHashMap<>();
@@ -144,7 +147,36 @@ public class PresetStore {
             merged.put(p.getName(), p);
         }
 
+        // Apply saved order
+        List<String> order = getPresetOrder();
+        if (!order.isEmpty()) {
+            List<Preset> ordered = new ArrayList<>();
+            for (String name : order) {
+                Preset p = merged.remove(name);
+                if (p != null) ordered.add(p);
+            }
+            // Append any presets not in the order list
+            ordered.addAll(merged.values());
+            return ordered;
+        }
+
         return new ArrayList<>(merged.values());
+    }
+
+    // --- Preset order ---
+
+    public List<String> getPresetOrder() {
+        String raw = preferences.getString(PRESET_ORDER_KEY);
+        if (raw == null || raw.isEmpty()) return new ArrayList<>();
+        List<String> result = new ArrayList<>();
+        for (String name : raw.split("\n")) {
+            if (!name.isEmpty()) result.add(name);
+        }
+        return result;
+    }
+
+    public void setPresetOrder(List<String> order) {
+        preferences.setString(PRESET_ORDER_KEY, String.join("\n", order));
     }
 
     // --- Hotkey settings ---

@@ -8,7 +8,9 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.AbstractTableModel;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MySettingsPanel implements SettingsPanel {
 
@@ -27,6 +29,8 @@ public class MySettingsPanel implements SettingsPanel {
     private final JTextArea templateArea;
     private final JButton deleteButton;
     private final JButton duplicateButton;
+    private final JButton moveUpButton;
+    private final JButton moveDownButton;
     private final JButton saveButton;
     private final JButton cancelButton;
 
@@ -55,20 +59,29 @@ public class MySettingsPanel implements SettingsPanel {
         JButton addButton = new JButton("Add");
         deleteButton = new JButton("Delete");
         duplicateButton = new JButton("Duplicate");
+        moveUpButton = new JButton("Up");
+        moveDownButton = new JButton("Down");
         JButton restoreDefaultsButton = new JButton("Restore defaults");
 
         deleteButton.setEnabled(false);
         duplicateButton.setEnabled(false);
+        moveUpButton.setEnabled(false);
+        moveDownButton.setEnabled(false);
 
         addButton.addActionListener(e -> onAdd());
         deleteButton.addActionListener(e -> onDelete());
         duplicateButton.addActionListener(e -> onDuplicate());
+        moveUpButton.addActionListener(e -> onMoveUp());
+        moveDownButton.addActionListener(e -> onMoveDown());
         restoreDefaultsButton.addActionListener(e -> onRestoreDefaults());
 
         JPanel buttonBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         buttonBar.add(addButton);
         buttonBar.add(deleteButton);
         buttonBar.add(duplicateButton);
+        buttonBar.add(Box.createHorizontalStrut(10));
+        buttonBar.add(moveUpButton);
+        buttonBar.add(moveDownButton);
         buttonBar.add(Box.createHorizontalStrut(20));
         buttonBar.add(restoreDefaultsButton);
 
@@ -141,9 +154,6 @@ public class MySettingsPanel implements SettingsPanel {
             hotkeyField.setEnabled(hotkeyEnabledCheckbox.isSelected());
         });
 
-        JLabel hotkeyHint = new JLabel("Suggested: " + PresetStore.DEFAULT_HOTKEY + "  (uses the first enabled preset)");
-        hotkeyHint.setFont(hotkeyHint.getFont().deriveFont(Font.ITALIC, 11f));
-
         JButton hotkeyApplyButton = new JButton("Apply");
         hotkeyApplyButton.addActionListener(e -> onApplyHotkey());
 
@@ -155,7 +165,7 @@ public class MySettingsPanel implements SettingsPanel {
 
         JPanel hotkeyPanel = new JPanel();
         hotkeyPanel.setLayout(new BoxLayout(hotkeyPanel, BoxLayout.Y_AXIS));
-        hotkeyPanel.setBorder(BorderFactory.createTitledBorder("Keyboard shortcut"));
+        hotkeyPanel.setBorder(BorderFactory.createTitledBorder("Keyboard shortcut (uses the first enabled preset)"));
         hotkeyPanel.add(hotkeyEnabledCheckbox);
         hotkeyPanel.add(Box.createVerticalStrut(5));
         hotkeyPanel.add(hotkeyRow);
@@ -308,6 +318,31 @@ public class MySettingsPanel implements SettingsPanel {
         nameField.requestFocusInWindow();
     }
 
+    private void onMoveUp() {
+        int sel = presetTable.getSelectedRow();
+        if (sel <= 0) return;
+        swapAndPersistOrder(sel, sel - 1);
+        presetTable.setRowSelectionInterval(sel - 1, sel - 1);
+    }
+
+    private void onMoveDown() {
+        int sel = presetTable.getSelectedRow();
+        if (sel < 0 || sel >= tableModel.getRowCount() - 1) return;
+        swapAndPersistOrder(sel, sel + 1);
+        presetTable.setRowSelectionInterval(sel + 1, sel + 1);
+    }
+
+    private void swapAndPersistOrder(int from, int to) {
+        List<String> order = new ArrayList<>();
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            order.add(tableModel.getRow(i).preset.getName());
+        }
+        String moved = order.remove(from);
+        order.add(to, moved);
+        presetStore.setPresetOrder(order);
+        reloadTable();
+    }
+
     private void onApplyHotkey() {
         boolean enabled = hotkeyEnabledCheckbox.isSelected();
         String hotkey = hotkeyField.getText().trim();
@@ -389,6 +424,8 @@ public class MySettingsPanel implements SettingsPanel {
         if (sel < 0) {
             deleteButton.setEnabled(false);
             duplicateButton.setEnabled(false);
+            moveUpButton.setEnabled(false);
+            moveDownButton.setEnabled(false);
             clearEditor();
             setEditorEnabled(false);
         } else {
@@ -396,6 +433,8 @@ public class MySettingsPanel implements SettingsPanel {
             boolean builtIn = "Built-in".equals(row.scope);
             deleteButton.setEnabled(!builtIn);
             duplicateButton.setEnabled(true);
+            moveUpButton.setEnabled(sel > 0);
+            moveDownButton.setEnabled(sel < tableModel.getRowCount() - 1);
             editingRow = builtIn ? -1 : sel;
             showPresetInEditor(row);
         }
@@ -447,20 +486,31 @@ public class MySettingsPanel implements SettingsPanel {
     }
 
     private void reloadTable() {
-        List<PresetRow> rows = new ArrayList<>();
+        // Build a map of name -> PresetRow with scope info
+        Map<String, PresetRow> byName = new LinkedHashMap<>();
 
-        boolean defaultOverridden = false;
+        // Built-in default first (may be overridden)
+        byName.put("Default", new PresetRow(Preset.createDefault(), "Built-in"));
+
         for (Preset p : presetStore.getUserPresets()) {
-            if ("Default".equals(p.getName())) defaultOverridden = true;
-            rows.add(new PresetRow(p, "User"));
+            byName.put(p.getName(), new PresetRow(p, "User"));
         }
         for (Preset p : presetStore.getProjectPresets()) {
-            if ("Default".equals(p.getName())) defaultOverridden = true;
-            rows.add(new PresetRow(p, "Project"));
+            byName.put(p.getName(), new PresetRow(p, "Project"));
         }
 
-        if (!defaultOverridden) {
-            rows.add(0, new PresetRow(Preset.createDefault(), "Built-in"));
+        // Apply saved order
+        List<String> order = presetStore.getPresetOrder();
+        List<PresetRow> rows = new ArrayList<>();
+        if (!order.isEmpty()) {
+            for (String name : order) {
+                PresetRow row = byName.remove(name);
+                if (row != null) rows.add(row);
+            }
+            // Append any presets not in the order list
+            rows.addAll(byName.values());
+        } else {
+            rows.addAll(byName.values());
         }
 
         tableModel.setRows(rows);
