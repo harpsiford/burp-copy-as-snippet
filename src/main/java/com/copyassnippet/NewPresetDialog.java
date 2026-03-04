@@ -147,6 +147,12 @@ public class NewPresetDialog {
             String replacement = replacementStringField.getText();
             List<RedactionRule> rules = ruleTableModel.getRules();
             String template = templateArea.getText();
+            String regexError = RegexValidation.firstValidationError(headers, cookies, params, rules);
+            if (regexError != null) {
+                JOptionPane.showMessageDialog(parent, regexError,
+                        "Validation", JOptionPane.WARNING_MESSAGE);
+                continue;
+            }
 
             Preset preset = new Preset(name, headers, cookies, params, rules, replacement, template, true);
 

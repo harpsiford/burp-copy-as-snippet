@@ -10,10 +10,13 @@ import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 {
+    private static final Logger LOGGER = Logger.getLogger(MyContextMenuItemsProvider.class.getName());
     private final PresetStore presetStore;
 
     public MyContextMenuItemsProvider(PresetStore presetStore)
@@ -44,7 +47,7 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
         try {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
         } catch (Exception e) {
-            // Clipboard access denied or unavailable — silently ignore
+            LOGGER.log(Level.WARNING, "Failed to copy snippet to clipboard from context menu.", e);
         }
     }
 

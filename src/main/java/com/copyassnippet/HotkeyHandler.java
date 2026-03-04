@@ -7,8 +7,11 @@ import burp.api.montoya.ui.hotkey.HotKeyHandler;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class HotkeyHandler implements HotKeyHandler {
+    private static final Logger LOGGER = Logger.getLogger(HotkeyHandler.class.getName());
 
     private final PresetStore presetStore;
 
@@ -31,7 +34,7 @@ public class HotkeyHandler implements HotKeyHandler {
         try {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
         } catch (Exception e) {
-            // Clipboard access denied or unavailable — silently ignore
+            LOGGER.log(Level.WARNING, "Failed to copy snippet to clipboard from hotkey.", e);
         }
     }
 

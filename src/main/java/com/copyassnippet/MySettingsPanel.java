@@ -508,6 +508,11 @@ public class MySettingsPanel implements SettingsPanel {
         String replacement = replacementStringField.getText();
         List<RedactionRule> rules = ruleTableModel.getRules();
         String template = templateArea.getText();
+        String regexError = RegexValidation.firstValidationError(headers, cookies, params, rules);
+        if (regexError != null) {
+            JOptionPane.showMessageDialog(panel, regexError, "Validation", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
         // Preserve the current enabled state if editing, default to true for new
         boolean enabled = true;

@@ -15,9 +15,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class RequestRedactor {
+    private static final Logger LOGGER = Logger.getLogger(RequestRedactor.class.getName());
 
     private final List<Pattern> headerPatterns;
     private final List<Pattern> cookiePatterns;
@@ -31,15 +34,11 @@ public class RequestRedactor {
     private final String replacementString;
     private final String template;
 
-    private static String anchorRegex(String r) {
-        String s = r.startsWith("^") ? r : "^" + r;
-        return s.endsWith("$") ? s : s + "$";
-    }
-
-    private static Pattern tryCompile(String regex, int flags) {
+    private static Pattern tryCompile(String regex, int flags, String context) {
         try {
             return Pattern.compile(regex, flags);
         } catch (PatternSyntaxException e) {
+            LOGGER.log(Level.WARNING, "Ignoring invalid regex for " + context + ": " + regex, e);
             return null;
         }
     }
@@ -47,21 +46,21 @@ public class RequestRedactor {
     public RequestRedactor(Preset preset) {
         List<Pattern> hPat = new ArrayList<>();
         for (String r : preset.getHeaderRegexes()) {
-            Pattern p = tryCompile(anchorRegex(r), Pattern.CASE_INSENSITIVE);
+            Pattern p = tryCompile(RegexUtil.anchorRegex(r), Pattern.CASE_INSENSITIVE, "header regex");
             if (p != null) hPat.add(p);
         }
         this.headerPatterns = hPat;
 
         List<Pattern> cPat = new ArrayList<>();
         for (String r : preset.getCookieRegexes()) {
-            Pattern p = tryCompile(anchorRegex(r), 0);
+            Pattern p = tryCompile(RegexUtil.anchorRegex(r), 0, "cookie regex");
             if (p != null) cPat.add(p);
         }
         this.cookiePatterns = cPat;
 
         List<Pattern> pPat = new ArrayList<>();
         for (String r : preset.getParamRegexes()) {
-            Pattern p = tryCompile(anchorRegex(r), 0);
+            Pattern p = tryCompile(RegexUtil.anchorRegex(r), 0, "param regex");
             if (p != null) pPat.add(p);
         }
         this.paramPatterns = pPat;
@@ -73,11 +72,26 @@ public class RequestRedactor {
         List<Pattern> rParam = new ArrayList<>();
         List<Pattern> rRegex = new ArrayList<>();
         for (RedactionRule rule : preset.getRedactionRules()) {
+            List<Pattern> target;
             switch (rule.getType()) {
-                case COOKIE: { Pattern p = tryCompile(anchorRegex(rule.getPattern()), 0); if (p != null) rCookie.add(p); break; }
-                case HEADER: { Pattern p = tryCompile(anchorRegex(rule.getPattern()), Pattern.CASE_INSENSITIVE); if (p != null) rHeader.add(p); break; }
-                case PARAM:  { Pattern p = tryCompile(anchorRegex(rule.getPattern()), 0); if (p != null) rParam.add(p); break; }
-                case REGEX:  { Pattern p = tryCompile(rule.getPattern(), Pattern.DOTALL); if (p != null) rRegex.add(p); break; }
+                case COOKIE:
+                    target = rCookie;
+                    break;
+                case HEADER:
+                    target = rHeader;
+                    break;
+                case PARAM:
+                    target = rParam;
+                    break;
+                case REGEX:
+                default:
+                    target = rRegex;
+                    break;
+            }
+
+            Pattern compiled = tryCompile(RegexUtil.anchorRegex(rule.getPattern()), rule.getType().patternFlags(), rule.getType().redactionContext());
+            if (compiled != null) {
+                target.add(compiled);
             }
         }
         this.redactCookiePatterns = rCookie;

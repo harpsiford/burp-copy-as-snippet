@@ -1,18 +1,41 @@
 package com.copyassnippet;
 
+import java.util.regex.Pattern;
+
 public class RedactionRule {
 
     public enum Type {
-        REGEX, COOKIE, HEADER, PARAM;
+        REGEX("Regex", "regex", "regex redaction rule", Pattern.DOTALL),
+        COOKIE("Cookie", "cookie", "cookie redaction rule", 0),
+        HEADER("Header", "header", "header redaction rule", Pattern.CASE_INSENSITIVE),
+        PARAM("Param", "param", "param redaction rule", 0);
+
+        private final String displayName;
+        private final String label;
+        private final String context;
+        private final int patternFlags;
+
+        Type(String displayName, String label, String context, int patternFlags) {
+            this.displayName = displayName;
+            this.label = label;
+            this.context = context;
+            this.patternFlags = patternFlags;
+        }
 
         public String displayName() {
-            switch (this) {
-                case REGEX: return "Regex";
-                case COOKIE: return "Cookie";
-                case HEADER: return "Header";
-                case PARAM: return "Param";
-                default: return name();
-            }
+            return displayName;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        public String redactionContext() {
+            return context;
+        }
+
+        public int patternFlags() {
+            return patternFlags;
         }
 
         public static Type fromDisplayName(String s) {
