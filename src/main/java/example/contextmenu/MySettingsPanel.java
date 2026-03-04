@@ -27,6 +27,11 @@ public class MySettingsPanel implements SettingsPanel {
     private final JTextArea headerRegexesArea;
     private final JTextArea cookieRegexesArea;
     private final JTextArea paramRegexesArea;
+    private final JTextField replacementStringField;
+    private final RedactionRuleTableModel ruleTableModel;
+    private final JTable ruleTable;
+    private final JButton ruleAddButton;
+    private final JButton ruleDeleteButton;
     private final JTextArea templateArea;
     private final JButton deleteButton;
     private final JButton duplicateButton;
@@ -105,6 +110,45 @@ public class MySettingsPanel implements SettingsPanel {
         cookieRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         paramRegexesArea = new JTextArea(6, 20);
         paramRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+
+        replacementStringField = new JTextField(Preset.DEFAULT_REPLACEMENT, 20);
+        replacementStringField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+
+        ruleTableModel = new RedactionRuleTableModel();
+        ruleTable = new JTable(ruleTableModel);
+        ruleTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        ruleTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+
+        // Type column: JComboBox editor
+        JComboBox<String> typeCombo = new JComboBox<>(new String[]{"Regex", "Cookie", "Header", "Param"});
+        ruleTable.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(typeCombo));
+        ruleTable.getColumnModel().getColumn(0).setPreferredWidth(80);
+        ruleTable.getColumnModel().getColumn(0).setMaxWidth(100);
+        ruleTable.setIntercellSpacing(new Dimension(0, 0));
+        ruleTable.setRowHeight(ruleTable.getFontMetrics(ruleTable.getFont()).getHeight() + 2);
+
+        ruleAddButton = new JButton("Add");
+        ruleDeleteButton = new JButton("Delete");
+        ruleDeleteButton.setEnabled(false);
+        ruleAddButton.addActionListener(e -> onRuleAdd());
+        ruleDeleteButton.addActionListener(e -> onRuleDelete());
+        ruleTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting())
+                ruleDeleteButton.setEnabled(ruleTable.getSelectedRow() >= 0);
+        });
+
+        JScrollPane ruleScroll = new JScrollPane(ruleTable);
+        ruleScroll.setPreferredSize(new Dimension(500, 100));
+
+        JPanel ruleButtonBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 0));
+        ruleButtonBar.add(ruleAddButton);
+        ruleButtonBar.add(ruleDeleteButton);
+
+        JPanel rulePanel = new JPanel(new BorderLayout(0, 2));
+        rulePanel.add(new JLabel("Redaction rules (value replacement):"), BorderLayout.NORTH);
+        rulePanel.add(ruleScroll, BorderLayout.CENTER);
+        rulePanel.add(ruleButtonBar, BorderLayout.SOUTH);
+
         templateArea = new JTextArea(5, 40);
         templateArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
 
@@ -131,6 +175,11 @@ public class MySettingsPanel implements SettingsPanel {
         scopeRow.add(scopeCombo, BorderLayout.CENTER);
         scopeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
+        JPanel replacementRow = new JPanel(new BorderLayout(5, 0));
+        replacementRow.add(new JLabel("Replacement string:"), BorderLayout.WEST);
+        replacementRow.add(replacementStringField, BorderLayout.CENTER);
+        replacementRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+
         JLabel placeholderHint = new JLabel("Template placeholders: {{request}}, {{response}}");
         placeholderHint.setFont(placeholderHint.getFont().deriveFont(Font.ITALIC, 11f));
 
@@ -144,6 +193,10 @@ public class MySettingsPanel implements SettingsPanel {
         editorPanel.add(scopeRow);
         editorPanel.add(Box.createVerticalStrut(10));
         editorPanel.add(regexColumns);
+        editorPanel.add(Box.createVerticalStrut(10));
+        editorPanel.add(replacementRow);
+        editorPanel.add(Box.createVerticalStrut(5));
+        editorPanel.add(rulePanel);
         editorPanel.add(Box.createVerticalStrut(10));
         editorPanel.add(placeholderHint);
         editorPanel.add(labeledScroll("Template:", templateArea));
@@ -211,7 +264,60 @@ public class MySettingsPanel implements SettingsPanel {
         return panel;
     }
 
-    // --- Table model ---
+    // --- Redaction rule table model ---
+
+    static class RedactionRuleTableModel extends AbstractTableModel {
+        private final List<RedactionRule> rules = new ArrayList<>();
+
+        void setRules(List<RedactionRule> newRules) {
+            rules.clear();
+            rules.addAll(newRules);
+            fireTableDataChanged();
+        }
+
+        List<RedactionRule> getRules() {
+            return new ArrayList<>(rules);
+        }
+
+        @Override public int getRowCount() { return rules.size(); }
+        @Override public int getColumnCount() { return 2; }
+
+        @Override
+        public String getColumnName(int col) {
+            return col == 0 ? "Type" : "Pattern";
+        }
+
+        @Override public boolean isCellEditable(int row, int col) { return true; }
+
+        @Override
+        public Object getValueAt(int row, int col) {
+            RedactionRule r = rules.get(row);
+            return col == 0 ? r.getType().displayName() : r.getPattern();
+        }
+
+        @Override
+        public void setValueAt(Object value, int row, int col) {
+            RedactionRule r = rules.get(row);
+            if (col == 0) {
+                r.setType(RedactionRule.Type.fromDisplayName((String) value));
+            } else {
+                r.setPattern((String) value);
+            }
+            fireTableCellUpdated(row, col);
+        }
+
+        void addRule(RedactionRule rule) {
+            rules.add(rule);
+            fireTableRowsInserted(rules.size() - 1, rules.size() - 1);
+        }
+
+        void removeRule(int row) {
+            rules.remove(row);
+            fireTableRowsDeleted(row, row);
+        }
+    }
+
+    // --- Preset table model ---
 
     private static class PresetRow {
         final Preset preset;
@@ -236,15 +342,8 @@ public class MySettingsPanel implements SettingsPanel {
             return rows.get(idx);
         }
 
-        @Override
-        public int getRowCount() {
-            return rows.size();
-        }
-
-        @Override
-        public int getColumnCount() {
-            return 3;
-        }
+        @Override public int getRowCount() { return rows.size(); }
+        @Override public int getColumnCount() { return 3; }
 
         @Override
         public String getColumnName(int column) {
@@ -300,6 +399,8 @@ public class MySettingsPanel implements SettingsPanel {
         headerRegexesArea.setText(String.join("\n", defaults.getHeaderRegexes()));
         cookieRegexesArea.setText(String.join("\n", defaults.getCookieRegexes()));
         paramRegexesArea.setText(String.join("\n", defaults.getParamRegexes()));
+        replacementStringField.setText(defaults.getReplacementString());
+        ruleTableModel.setRules(defaults.getRedactionRules());
         templateArea.setText(defaults.getTemplate());
         setEditorEnabled(true);
         nameField.requestFocusInWindow();
@@ -376,6 +477,21 @@ public class MySettingsPanel implements SettingsPanel {
         reloadTable();
     }
 
+    private void onRuleAdd() {
+        // Commit any in-progress cell edit before adding
+        if (ruleTable.isEditing()) ruleTable.getCellEditor().stopCellEditing();
+        ruleTableModel.addRule(new RedactionRule(RedactionRule.Type.REGEX, ""));
+        int newRow = ruleTableModel.getRowCount() - 1;
+        ruleTable.setRowSelectionInterval(newRow, newRow);
+        ruleTable.editCellAt(newRow, 1);
+    }
+
+    private void onRuleDelete() {
+        if (ruleTable.isEditing()) ruleTable.getCellEditor().stopCellEditing();
+        int sel = ruleTable.getSelectedRow();
+        if (sel >= 0) ruleTableModel.removeRule(sel);
+    }
+
     private void onSave() {
         String name = nameField.getText().trim();
         if (name.isEmpty()) {
@@ -383,10 +499,15 @@ public class MySettingsPanel implements SettingsPanel {
             return;
         }
 
+        // Commit any in-progress cell edit in the rule table
+        if (ruleTable.isEditing()) ruleTable.getCellEditor().stopCellEditing();
+
         String scope = (String) scopeCombo.getSelectedItem();
         List<String> headers = parseLines(headerRegexesArea.getText());
         List<String> cookies = parseLines(cookieRegexesArea.getText());
         List<String> params = parseLines(paramRegexesArea.getText());
+        String replacement = replacementStringField.getText();
+        List<RedactionRule> rules = ruleTableModel.getRules();
         String template = templateArea.getText();
 
         // Preserve the current enabled state if editing, default to true for new
@@ -395,7 +516,7 @@ public class MySettingsPanel implements SettingsPanel {
             enabled = tableModel.getRow(editingRow).preset.isEnabled();
         }
 
-        Preset preset = new Preset(name, headers, cookies, params, template, enabled);
+        Preset preset = new Preset(name, headers, cookies, params, rules, replacement, template, enabled);
 
         // If editing an existing row and the name/scope changed, remove the old one
         if (editingRow >= 0) {
@@ -480,6 +601,8 @@ public class MySettingsPanel implements SettingsPanel {
         headerRegexesArea.setText(String.join("\n", preset.getHeaderRegexes()));
         cookieRegexesArea.setText(String.join("\n", preset.getCookieRegexes()));
         paramRegexesArea.setText(String.join("\n", preset.getParamRegexes()));
+        replacementStringField.setText(preset.getReplacementString());
+        ruleTableModel.setRules(preset.getRedactionRules());
         templateArea.setText(preset.getTemplate());
     }
 
@@ -489,6 +612,8 @@ public class MySettingsPanel implements SettingsPanel {
         headerRegexesArea.setText("");
         cookieRegexesArea.setText("");
         paramRegexesArea.setText("");
+        replacementStringField.setText(Preset.DEFAULT_REPLACEMENT);
+        ruleTableModel.setRules(List.of());
         templateArea.setText("");
     }
 
@@ -498,6 +623,10 @@ public class MySettingsPanel implements SettingsPanel {
         headerRegexesArea.setEnabled(enabled);
         cookieRegexesArea.setEnabled(enabled);
         paramRegexesArea.setEnabled(enabled);
+        replacementStringField.setEnabled(enabled);
+        ruleTable.setEnabled(enabled);
+        ruleAddButton.setEnabled(enabled);
+        ruleDeleteButton.setEnabled(enabled && ruleTable.getSelectedRow() >= 0);
         templateArea.setEnabled(enabled);
         saveButton.setEnabled(enabled);
         cancelButton.setEnabled(enabled);

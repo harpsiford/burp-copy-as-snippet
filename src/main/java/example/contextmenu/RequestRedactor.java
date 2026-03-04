@@ -2,13 +2,16 @@ package example.contextmenu;
 
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.params.HttpParameter;
 import burp.api.montoya.http.message.params.HttpParameterType;
 import burp.api.montoya.http.message.params.ParsedHttpParameter;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -21,6 +24,14 @@ public class RequestRedactor {
     private final List<Pattern> headerPatterns;
     private final List<Pattern> cookiePatterns;
     private final List<Pattern> paramPatterns;
+
+    // Redaction rules: value replacement (run after removal rules)
+    private final List<Pattern> redactCookiePatterns;
+    private final List<Pattern> redactHeaderPatterns;
+    private final List<Pattern> redactParamPatterns;
+    private final List<Pattern> redactRegexPatterns;
+
+    private final String replacementString;
     private final String template;
 
     private static String anchorRegex(String r) {
@@ -38,10 +49,31 @@ public class RequestRedactor {
         this.paramPatterns = preset.getParamRegexes().stream()
                 .map(r -> Pattern.compile(anchorRegex(r)))
                 .collect(Collectors.toList());
+
+        this.replacementString = preset.getReplacementString();
+
+        List<Pattern> rCookie = new ArrayList<>();
+        List<Pattern> rHeader = new ArrayList<>();
+        List<Pattern> rParam = new ArrayList<>();
+        List<Pattern> rRegex = new ArrayList<>();
+        for (RedactionRule rule : preset.getRedactionRules()) {
+            switch (rule.getType()) {
+                case COOKIE: rCookie.add(Pattern.compile(anchorRegex(rule.getPattern()))); break;
+                case HEADER: rHeader.add(Pattern.compile(anchorRegex(rule.getPattern()), Pattern.CASE_INSENSITIVE)); break;
+                case PARAM:  rParam.add(Pattern.compile(anchorRegex(rule.getPattern()))); break;
+                case REGEX:  rRegex.add(Pattern.compile(rule.getPattern(), Pattern.DOTALL)); break;
+            }
+        }
+        this.redactCookiePatterns = rCookie;
+        this.redactHeaderPatterns = rHeader;
+        this.redactParamPatterns = rParam;
+        this.redactRegexPatterns = rRegex;
+
         this.template = preset.getTemplate();
     }
 
     public HttpRequest redact(HttpRequest request) {
+        // --- Hardcoded auth header redaction ---
         if (request.hasHeader("Authorization")) {
             request = request.withUpdatedHeader("Authorization",
                     request.headerValue("Authorization").replaceAll(" .+$", " [REDACTED]"));
@@ -50,6 +82,8 @@ public class RequestRedactor {
             request = request.withUpdatedHeader("X-Authorization",
                     request.headerValue("X-Authorization").replaceAll(" .+$", " [REDACTED]"));
         }
+
+        // --- Cookie removal ---
         if (request.hasHeader("Cookie")) {
             List<String> newCookies = Arrays.stream(request.headerValue("Cookie").split(";"))
                     .map(String::trim)
@@ -65,11 +99,13 @@ public class RequestRedactor {
             }
         }
 
+        // --- Header removal ---
         List<HttpHeader> headersToRemove = request.headers().stream()
                 .filter(h -> headerPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches()))
                 .collect(Collectors.toList());
         request = request.withRemovedHeaders(headersToRemove);
 
+        // --- Param removal ---
         if (!paramPatterns.isEmpty()) {
             List<ParsedHttpParameter> paramsToRemove = request.parameters().stream()
                     .filter(p -> p.type() == HttpParameterType.URL
@@ -82,22 +118,128 @@ public class RequestRedactor {
             }
         }
 
+        // --- Cookie value redaction (keep cookie, replace value) ---
+        if (!redactCookiePatterns.isEmpty() && request.hasHeader("Cookie")) {
+            List<String> redactedCookies = Arrays.stream(request.headerValue("Cookie").split(";"))
+                    .map(String::trim)
+                    .map(s -> s.split("=", 2))
+                    .map(a -> {
+                        if (a.length > 1 && redactCookiePatterns.stream().anyMatch(p -> p.matcher(a[0]).matches())) {
+                            return a[0] + "=" + replacementString;
+                        }
+                        return (a.length > 1) ? (a[0] + "=" + a[1]) : a[0];
+                    })
+                    .collect(Collectors.toList());
+            request = request.withUpdatedHeader("Cookie", String.join("; ", redactedCookies));
+        }
+
+        // --- Header value redaction (keep header, replace value) ---
+        if (!redactHeaderPatterns.isEmpty()) {
+            for (HttpHeader h : new ArrayList<>(request.headers())) {
+                if (redactHeaderPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches())) {
+                    request = request.withUpdatedHeader(h.name(), replacementString);
+                }
+            }
+        }
+
+        // --- Param value redaction (keep param, replace value) ---
+        if (!redactParamPatterns.isEmpty()) {
+            List<ParsedHttpParameter> paramsToRedact = request.parameters().stream()
+                    .filter(p -> p.type() == HttpParameterType.URL
+                              || p.type() == HttpParameterType.BODY
+                              || p.type() == HttpParameterType.JSON)
+                    .filter(p -> redactParamPatterns.stream().anyMatch(pat -> pat.matcher(p.name()).matches()))
+                    .collect(Collectors.toList());
+            for (ParsedHttpParameter param : paramsToRedact) {
+                request = request.withRemovedParameters(List.of(param));
+                request = request.withParameter(HttpParameter.parameter(param.name(), replacementString, param.type()));
+            }
+        }
+
         return request;
     }
 
     public HttpResponse redact(HttpResponse response) {
+        // --- Header removal ---
         List<HttpHeader> headersToRemove = response.headers().stream()
                 .filter(h -> headerPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches()))
                 .collect(Collectors.toList());
-        return response.withRemovedHeaders(headersToRemove);
+        response = response.withRemovedHeaders(headersToRemove);
+
+        // --- Header value redaction ---
+        if (!redactHeaderPatterns.isEmpty()) {
+            for (HttpHeader h : new ArrayList<>(response.headers())) {
+                if (redactHeaderPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches())) {
+                    response = response.withUpdatedHeader(h.name(), replacementString);
+                }
+            }
+        }
+
+        // --- Set-Cookie value redaction ---
+        if (!redactCookiePatterns.isEmpty()) {
+            List<HttpHeader> setCookieHeaders = response.headers().stream()
+                    .filter(h -> h.name().equalsIgnoreCase("Set-Cookie"))
+                    .collect(Collectors.toList());
+            for (HttpHeader h : setCookieHeaders) {
+                String cookieLine = h.value();
+                // Set-Cookie: name=value; attributes...
+                int eq = cookieLine.indexOf('=');
+                int semi = cookieLine.indexOf(';');
+                if (eq > 0) {
+                    String cookieName = cookieLine.substring(0, eq).trim();
+                    if (redactCookiePatterns.stream().anyMatch(p -> p.matcher(cookieName).matches())) {
+                        String rest = semi >= 0 ? cookieLine.substring(semi) : "";
+                        response = response.withUpdatedHeader("Set-Cookie", cookieName + "=" + replacementString + rest);
+                    }
+                }
+            }
+        }
+
+        return response;
+    }
+
+    /**
+     * Applies REGEX-type redaction rules to a raw HTTP message string.
+     * Every capturing group in the pattern is replaced with the replacement string;
+     * non-capturing text within the match is preserved.
+     * If the pattern has no capturing groups, the entire match is replaced.
+     */
+    private String applyRegexRedactions(String text) {
+        for (Pattern p : redactRegexPatterns) {
+            Matcher m = p.matcher(text);
+            StringBuilder sb = new StringBuilder();
+            while (m.find()) {
+                int groupCount = m.groupCount();
+                if (groupCount == 0) {
+                    m.appendReplacement(sb, Matcher.quoteReplacement(replacementString));
+                } else {
+                    // Replace all capturing groups; preserve non-group text within the match.
+                    // Skip groups that start before `pos` (i.e. nested inside an already-replaced group).
+                    StringBuilder rep = new StringBuilder();
+                    int pos = m.start();
+                    for (int i = 1; i <= groupCount; i++) {
+                        if (m.group(i) != null && m.start(i) >= pos) {
+                            rep.append(text, pos, m.start(i));
+                            rep.append(replacementString);
+                            pos = m.end(i);
+                        }
+                    }
+                    rep.append(text, pos, m.end()); // text after last group, still within the match
+                    m.appendReplacement(sb, Matcher.quoteReplacement(rep.toString()));
+                }
+            }
+            m.appendTail(sb);
+            text = sb.toString();
+        }
+        return text;
     }
 
     public String format(HttpRequestResponse requestResponse) {
-        String redactedRequest = redact(requestResponse.request()).toString();
+        String redactedRequest = applyRegexRedactions(redact(requestResponse.request()).toString());
 
         String responseBlock;
         if (requestResponse.response() != null) {
-            responseBlock = redact(requestResponse.response()).toString();
+            responseBlock = applyRegexRedactions(redact(requestResponse.response()).toString());
         } else {
             responseBlock = "No response was received.";
         }
