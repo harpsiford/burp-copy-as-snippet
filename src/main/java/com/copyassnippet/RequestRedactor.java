@@ -173,9 +173,7 @@ public class RequestRedactor {
             }
         }
 
-        // --- Set-Cookie value redaction ---
-        // Remove all Set-Cookie headers first, then re-add each one individually
-        // (withUpdatedHeader only updates the first occurrence, breaking multi-value headers).
+        // Remove all Set-Cookie headers first, then re-add each one individually (withUpdatedHeader only updates the first occurrence, breaking multi-value headers)
         if (!redactCookiePatterns.isEmpty()) {
             List<HttpHeader> setCookieHeaders = response.headers().stream()
                     .filter(h -> h.name().equalsIgnoreCase("Set-Cookie"))

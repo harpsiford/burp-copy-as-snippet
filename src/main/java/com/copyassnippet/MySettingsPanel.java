@@ -24,7 +24,6 @@ public class MySettingsPanel implements SettingsPanel {
     private final PresetTableModel tableModel;
     private final JTable presetTable;
 
-    // Editor fields
     private final JTextField nameField;
     private final JComboBox<String> scopeCombo;
     private final JTextArea headerRegexesArea;
@@ -43,7 +42,6 @@ public class MySettingsPanel implements SettingsPanel {
     private final JButton saveButton;
     private final JButton cancelButton;
 
-    // Hotkey fields
     private final JCheckBox hotkeyEnabledCheckbox;
     private final JTextField hotkeyField;
 
@@ -100,7 +98,6 @@ public class MySettingsPanel implements SettingsPanel {
         presetTable.setIntercellSpacing(new Dimension(0, 0));
         presetTable.setRowHeight(presetTable.getFontMetrics(presetTable.getFont()).getHeight() + 2);
 
-        // --- Top section (table + buttons) ---
         JPanel topSection = new JPanel(new BorderLayout(5, 0));
         topSection.add(buttonBar, BorderLayout.WEST);
         topSection.add(tableScroll, BorderLayout.CENTER);
@@ -124,7 +121,6 @@ public class MySettingsPanel implements SettingsPanel {
         ruleTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         ruleTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
 
-        // Type column: JComboBox editor
         JComboBox<String> typeCombo = new JComboBox<>(new String[]{"Regex", "Cookie", "Header", "Param"});
         ruleTable.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(typeCombo));
         ruleTable.getColumnModel().getColumn(0).setPreferredWidth(80);
@@ -325,11 +321,9 @@ public class MySettingsPanel implements SettingsPanel {
         }
     }
 
-    // --- Preset table model ---
-
     private static class PresetRow {
         final Preset preset;
-        final String scope; // "User", "Project", or "Built-in"
+        final String scope;
 
         PresetRow(Preset preset, String scope) {
             this.preset = preset;
@@ -394,8 +388,6 @@ public class MySettingsPanel implements SettingsPanel {
             persistEnabledToggle(row);
         }
     }
-
-    // --- Actions ---
 
     private void onAdd() {
         addingNew = true;
@@ -601,8 +593,6 @@ public class MySettingsPanel implements SettingsPanel {
         }
     }
 
-    // --- Helpers ---
-
     private void populateEditor(Preset preset, String scope) {
         nameField.setText(preset.getName());
         scopeCombo.setSelectedItem(scope.equals("Project") ? "Project" : "User");
@@ -641,10 +631,8 @@ public class MySettingsPanel implements SettingsPanel {
     }
 
     private void reloadTable() {
-        // Build a map of name -> PresetRow with scope info
         Map<String, PresetRow> byName = new LinkedHashMap<>();
 
-        // Built-in default first (may be overridden)
         byName.put("Default", new PresetRow(Preset.createDefault(), "Built-in"));
 
         for (Preset p : presetStore.getUserPresets()) {
@@ -654,19 +642,13 @@ public class MySettingsPanel implements SettingsPanel {
             byName.put(p.getName(), new PresetRow(p, "Project"));
         }
 
-        // Apply saved order
         List<String> order = presetStore.getPresetOrder();
         List<PresetRow> rows = new ArrayList<>();
-        if (!order.isEmpty()) {
-            for (String name : order) {
-                PresetRow row = byName.remove(name);
-                if (row != null) rows.add(row);
-            }
-            // Append any presets not in the order list
-            rows.addAll(byName.values());
-        } else {
-            rows.addAll(byName.values());
+        for (String name : order) {
+            PresetRow row = byName.remove(name);
+            if (row != null) rows.add(row);
         }
+        rows.addAll(byName.values());
 
         tableModel.setRows(rows);
     }

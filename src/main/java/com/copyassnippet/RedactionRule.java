@@ -36,15 +36,10 @@ public class RedactionRule {
     public String getPattern() { return pattern; }
     public void setPattern(String pattern) { this.pattern = pattern; }
 
-    /** Serializes to {@code "TYPE:pattern"} for flat storage. */
     public String toSerializedString() {
         return type.name() + ":" + pattern;
     }
 
-    /**
-     * Parses a string produced by {@link #toSerializedString()}.
-     * Returns null if the string is blank or malformed.
-     */
     public static RedactionRule fromSerializedString(String s) {
         if (s == null || s.isBlank()) return null;
         int colon = s.indexOf(':');

@@ -5,9 +5,6 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Modal dialog for creating a new preset, pre-populated with Default preset values.
- */
 public class NewPresetDialog {
 
     private final PresetStore presetStore;

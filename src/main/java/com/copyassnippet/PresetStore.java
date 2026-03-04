@@ -10,14 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Manages preset persistence at two levels:
- * - User-level: stored via Preferences with prefixed keys (persists across projects)
- * - Project-level: stored via extensionData() PersistedObject child objects (per-project)
- *
- * When resolving presets, project-level presets override user-level ones with the same name.
- * A built-in "Default" preset is always available as a fallback.
- */
+
 public class PresetStore {
     private static final String USER_PRESET_PREFIX = "user.preset";
     private static final String USER_PRESET_NAMES_KEY = "user.preset.names";
@@ -115,13 +108,6 @@ public class PresetStore {
         extensionData.setChildObject(PROJECT_PRESETS_KEY, container);
     }
 
-    // --- Merged view ---
-
-    /**
-     * Returns the merged list of presets. Project-level presets override user-level
-     * ones with the same name. If no presets exist at all, returns the built-in Default.
-     * Respects the persisted display order.
-     */
     public List<Preset> getResolvedPresets() {
         Map<String, Preset> merged = new LinkedHashMap<>();
 
