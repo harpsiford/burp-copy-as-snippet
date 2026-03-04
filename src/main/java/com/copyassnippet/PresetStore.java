@@ -6,9 +6,7 @@ import burp.api.montoya.persistence.PersistedObject;
 import burp.api.montoya.persistence.Preferences;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 
 public class PresetStore {
@@ -25,10 +23,16 @@ public class PresetStore {
 
     private final Preferences preferences;
     private final PersistedObject extensionData;
+    private final PresetResolver presetResolver;
 
     public PresetStore(MontoyaApi api) {
+        this(api, new PresetResolver());
+    }
+
+    PresetStore(MontoyaApi api, PresetResolver presetResolver) {
         this.preferences = api.persistence().preferences();
         this.extensionData = api.persistence().extensionData();
+        this.presetResolver = presetResolver;
     }
 
     public List<Preset> getUserPresets() {
@@ -109,31 +113,11 @@ public class PresetStore {
     }
 
     public List<Preset> getResolvedPresets() {
-        Map<String, Preset> merged = new LinkedHashMap<>();
+        return presetResolver.resolvePresets(getUserPresets(), getProjectPresets(), getPresetOrder());
+    }
 
-        Preset builtIn = Preset.createDefault();
-        merged.put(builtIn.getName(), builtIn);
-
-        for (Preset p : getUserPresets()) {
-            merged.put(p.getName(), p);
-        }
-
-        for (Preset p : getProjectPresets()) {
-            merged.put(p.getName(), p);
-        }
-
-        List<String> order = getPresetOrder();
-        if (!order.isEmpty()) {
-            List<Preset> ordered = new ArrayList<>();
-            for (String name : order) {
-                Preset p = merged.remove(name);
-                if (p != null) ordered.add(p);
-            }
-            ordered.addAll(merged.values());
-            return ordered;
-        }
-
-        return new ArrayList<>(merged.values());
+    List<PresetResolver.ResolvedPreset> getResolvedPresetEntries() {
+        return presetResolver.resolve(getUserPresets(), getProjectPresets(), getPresetOrder());
     }
 
     public List<String> getPresetOrder() {

@@ -10,9 +10,7 @@ import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.EventObject;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class MySettingsPanel implements SettingsPanel {
 
@@ -433,24 +431,10 @@ public class MySettingsPanel implements SettingsPanel {
     }
 
     private void reloadTable() {
-        Map<String, PresetRow> byName = new LinkedHashMap<>();
-
-        byName.put("Default", new PresetRow(Preset.createDefault(), PresetScope.BUILT_IN));
-
-        for (Preset p : presetStore.getUserPresets()) {
-            byName.put(p.getName(), new PresetRow(p, PresetScope.USER));
-        }
-        for (Preset p : presetStore.getProjectPresets()) {
-            byName.put(p.getName(), new PresetRow(p, PresetScope.PROJECT));
-        }
-
-        List<String> order = presetStore.getPresetOrder();
         List<PresetRow> rows = new ArrayList<>();
-        for (String name : order) {
-            PresetRow row = byName.remove(name);
-            if (row != null) rows.add(row);
+        for (PresetResolver.ResolvedPreset resolvedPreset : presetStore.getResolvedPresetEntries()) {
+            rows.add(new PresetRow(resolvedPreset.getPreset(), resolvedPreset.getScope()));
         }
-        rows.addAll(byName.values());
 
         tableModel.setRows(rows);
     }
