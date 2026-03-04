@@ -68,7 +68,7 @@ final class SwingSettingsView implements SettingsView {
 
         JPanel buttonBar = new JPanel();
         buttonBar.setLayout(new BoxLayout(buttonBar, BoxLayout.Y_AXIS));
-        for (JButton button : new JButton[]{addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton, restoreDefaultsButton}) {
+        for (JButton button : new JButton[]{addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton}) {
             button.setAlignmentX(Component.LEFT_ALIGNMENT);
             button.setMaximumSize(new Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
             buttonBar.add(button);
@@ -130,7 +130,7 @@ final class SwingSettingsView implements SettingsView {
         hotkeyPanel.add(Box.createVerticalStrut(5));
         hotkeyPanel.add(hotkeyRow);
         hotkeyPanel.add(Box.createVerticalStrut(3));
-        JPanel hotkeySection = sectionPanel("Keyboard Shortcut", hotkeyPanel);
+        JPanel hotkeySection = sectionPanel("Keyboard shortcut", hotkeyPanel);
 
         JPanel topWrapper = new JPanel();
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
@@ -142,9 +142,13 @@ final class SwingSettingsView implements SettingsView {
         topWrapper.add(Box.createVerticalStrut(10));
         topWrapper.add(hotkeySection);
 
+        JPanel bottomActions = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        bottomActions.add(restoreDefaultsButton);
+
         panel = new JPanel(new BorderLayout(0, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.add(topWrapper, BorderLayout.NORTH);
+        panel.add(bottomActions, BorderLayout.SOUTH);
         panel.addHierarchyListener(e -> {
             if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && panel.isShowing()) {
                 notifyViewShown();
@@ -426,7 +430,11 @@ final class SwingSettingsView implements SettingsView {
     private static JPanel sectionPanel(String title, JComponent content) {
         JPanel section = new JPanel(new BorderLayout(0, 4));
         section.add(sectionHeader(title), BorderLayout.NORTH);
-        section.add(content, BorderLayout.CENTER);
+        JPanel indentedContent = new JPanel(new BorderLayout());
+        indentedContent.setOpaque(false);
+        indentedContent.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 0));
+        indentedContent.add(content, BorderLayout.CENTER);
+        section.add(indentedContent, BorderLayout.CENTER);
         return section;
     }
 

@@ -64,14 +64,6 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
             submenu.add(item);
         }
 
-        submenu.addSeparator();
-
-        JMenuItem createNew = new JMenuItem("Create new preset\u2026");
-        createNew.addActionListener(l -> {
-            new NewPresetDialog(presetStore).show(submenu);
-        });
-        submenu.add(createNew);
-
         List<Component> menuItemList = new ArrayList<>();
         menuItemList.add(submenu);
         return menuItemList;
