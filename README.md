@@ -1,14 +1,21 @@
-Context Menu Example Extension
-============================
+# Copy As Snippet for Burp Suite
 
-###### Registers new context menu items to print requests and responses.
+Are you tired of removing junk headers and cookies from the PoCs you copy from Burp? I definitely am, which is why this extension exists!
 
----
-This extension adds a new context menu item to print out the request or response of an HttpRequestResponse in the Target, Proxy or Logger tab.
+## Features
+- Copy the request/response from the context menu in a configurable format
+- Configure an editor keyboard shortcut to skip the context menu
+- Junk headers/cookies are automatically removed from the request/response
+- HTTP parameter removal is also supported (GET, POST forms, JSON)
+- JWTs and sensitive cookies are automatically replaced with a string of your choosing (`REDACTED` by default)
+- Supports user/project-level presets. If the default preset doesn't scrub all junk headers, you can always create your own!
 
-The sample extension demonstrates the following techniques:
-- Registering a new `ContextMenuItemsProvider`.
-- Creating a `JMenuItem`.
-- Adding an action listener to a `JMenuItem`.
-- If you right-click in a message editor context, it will use the item from the message editor.
-- If you right-click on a table item, it will print the request/response for the first selected item.
+**Note**: The default junk header/cookie list is not meant to be universal. For example, you can completely ignore cache-related headers in one PoC, but in another you won't be able to ignore them. Create and use presets, for yourself, and feel free to suggest changes via GitHub issues!
+
+![Settings view](settings-view.png)
+
+![Preset editor](preset-editor.png)
+
+## Building locally
+
+Uses OpenJDK 21.0.10 with Gradle 9.3.1. To build your own copy, just run `gradle build` from the repository root, then grab the JAR from `build/libs/`.

@@ -115,10 +115,6 @@ class PresetFormPanel extends JPanel {
         replacementRow.add(replacementStringField, BorderLayout.CENTER);
         replacementRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
-        JLabel placeholderHint = new JLabel("Template placeholders: {{request}}, {{response}}");
-        Font labelFont = UIManager.getFont("Label.font");
-        placeholderHint.setFont(labelFont.deriveFont(labelFont.getStyle() | Font.ITALIC));
-
         JPanel regexColumns = new JPanel(new GridLayout(1, 3, 10, 0));
         regexColumns.add(labeledScroll("Header regexes (one per line):", headerRegexesArea));
         regexColumns.add(labeledScroll("Cookie regexes (one per line):", cookieRegexesArea));
@@ -130,11 +126,10 @@ class PresetFormPanel extends JPanel {
         replacementRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         rulePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         ruleHeaderPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        placeholderHint.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel templateHeader = sectionHeader("Template");
         templateHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JPanel templatePanel = labeledScroll("Template:", templateArea);
+        JPanel templatePanel = labeledScroll("Template placeholders: {{request}}, {{response}}", templateArea);
         templatePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         add(nameRow);
@@ -149,7 +144,6 @@ class PresetFormPanel extends JPanel {
         add(Box.createVerticalStrut(10));
         add(templateHeader);
         add(Box.createVerticalStrut(2));
-        add(placeholderHint);
         add(templatePanel);
     }
 
