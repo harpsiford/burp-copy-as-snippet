@@ -18,10 +18,17 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 {
     private static final Logger LOGGER = Logger.getLogger(MyContextMenuItemsProvider.class.getName());
     private final PresetStore presetStore;
+    private final RedactionEngine redactionEngine;
 
     public MyContextMenuItemsProvider(PresetStore presetStore)
     {
+        this(presetStore, new CachingRedactionEngine());
+    }
+
+    MyContextMenuItemsProvider(PresetStore presetStore, RedactionEngine redactionEngine)
+    {
         this.presetStore = presetStore;
+        this.redactionEngine = redactionEngine;
     }
 
     private List<HttpRequestResponse> getRequestResponses(ContextMenuEvent event) {
@@ -33,14 +40,13 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 
     private void copyWithPreset(ContextMenuEvent event, Preset preset) {
         List<HttpRequestResponse> requestResponses = getRequestResponses(event);
-        RequestRedactor redactor = new RequestRedactor(preset);
 
         StringBuilder report = new StringBuilder();
         for (HttpRequestResponse rr : requestResponses) {
             if (report.length() > 0) {
                 report.append("\r\n");
             }
-            report.append(redactor.format(rr));
+            report.append(redactionEngine.format(preset, rr));
         }
 
         String result = report.toString().replaceAll("[\r\n]+$", "");

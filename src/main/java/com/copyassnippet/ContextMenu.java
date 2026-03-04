@@ -11,9 +11,10 @@ public class ContextMenu implements BurpExtension
         api.extension().setName("Copy as snippet");
 
         PresetStore presetStore = new PresetStore(api);
-        HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore);
+        RedactionEngine redactionEngine = new CachingRedactionEngine();
+        HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore, redactionEngine);
 
-        api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(presetStore));
+        api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(presetStore, redactionEngine));
         api.userInterface().registerSettingsPanel(new MySettingsPanel(presetStore, hotkeyManager));
 
         hotkeyManager.applyFromSettings();

@@ -14,9 +14,15 @@ public class HotkeyHandler implements HotKeyHandler {
     private static final Logger LOGGER = Logger.getLogger(HotkeyHandler.class.getName());
 
     private final PresetStore presetStore;
+    private final RedactionEngine redactionEngine;
 
     public HotkeyHandler(PresetStore presetStore) {
+        this(presetStore, new CachingRedactionEngine());
+    }
+
+    HotkeyHandler(PresetStore presetStore, RedactionEngine redactionEngine) {
         this.presetStore = presetStore;
+        this.redactionEngine = redactionEngine;
     }
 
     @Override
@@ -28,8 +34,7 @@ public class HotkeyHandler implements HotKeyHandler {
         Preset preset = getFirstEnabledPreset();
         if (preset == null) return;
 
-        RequestRedactor redactor = new RequestRedactor(preset);
-        String result = redactor.format(requestResponse);
+        String result = redactionEngine.format(preset, requestResponse);
 
         try {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
