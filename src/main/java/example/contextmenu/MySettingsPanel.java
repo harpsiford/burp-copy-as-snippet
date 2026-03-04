@@ -6,8 +6,11 @@ import burp.api.montoya.ui.settings.SettingsPanel;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.EventObject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +61,8 @@ public class MySettingsPanel implements SettingsPanel {
         presetTable.getSelectionModel().addListSelectionListener(this::onSelectionChanged);
         presetTable.getColumnModel().getColumn(0).setMaxWidth(50);
         presetTable.getColumnModel().getColumn(0).setMinWidth(50);
+        presetTable.getColumnModel().getColumn(0).setCellRenderer(new NativeSizedBooleanRenderer());
+        presetTable.getColumnModel().getColumn(0).setCellEditor(new NativeSizedBooleanEditor());
         JScrollPane tableScroll = new JScrollPane(presetTable);
         tableScroll.setPreferredSize(new Dimension(400, 150));
 
@@ -208,6 +213,9 @@ public class MySettingsPanel implements SettingsPanel {
         // --- Hotkey section ---
         hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor)");
         hotkeyEnabledCheckbox.setSelected(presetStore.isHotkeyEnabled());
+        Icon hkIcon = scaledNativeCheckboxIcon(
+                hotkeyEnabledCheckbox.getFontMetrics(hotkeyEnabledCheckbox.getFont()).getHeight() - 2);
+        if (hkIcon != null) hotkeyEnabledCheckbox.setIcon(hkIcon);
 
         hotkeyField = new JTextField(presetStore.getHotkeyString(), 20);
         hotkeyField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
@@ -703,5 +711,66 @@ public class MySettingsPanel implements SettingsPanel {
         p.add(new JLabel(label), BorderLayout.NORTH);
         p.add(new JScrollPane(area), BorderLayout.CENTER);
         return p;
+    }
+
+    // Returns the native L&F checkbox icon scaled to targetSize, or null if no scaling is needed.
+    private static Icon scaledNativeCheckboxIcon(int targetSize) {
+        Icon raw = UIManager.getIcon("CheckBox.icon");
+        if (raw == null || raw.getIconWidth() <= 0 || raw.getIconWidth() == targetSize) return null;
+        return new Icon() {
+            @Override public int getIconWidth() { return targetSize; }
+            @Override public int getIconHeight() { return targetSize; }
+            @Override public void paintIcon(Component c, Graphics g, int x, int y) {
+                double s = (double) targetSize / raw.getIconWidth();
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2.translate(x, y);
+                g2.scale(s, s);
+                raw.paintIcon(c, g2, 0, 0);
+                g2.dispose();
+            }
+        };
+    }
+
+    // Renders the boolean "Show" column using the native L&F checkbox icon scaled to the table font.
+    private static class NativeSizedBooleanRenderer extends JCheckBox implements TableCellRenderer {
+        private Icon cachedIcon;
+
+        NativeSizedBooleanRenderer() {
+            setHorizontalAlignment(JLabel.CENTER);
+            setOpaque(true);
+            setBorderPainted(false);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int col) {
+            setSelected(Boolean.TRUE.equals(value));
+            setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+            if (cachedIcon == null) {
+                int target = table.getFontMetrics(table.getFont()).getHeight() - 2;
+                cachedIcon = scaledNativeCheckboxIcon(target);
+                if (cachedIcon != null) setIcon(cachedIcon);
+            }
+            return this;
+        }
+    }
+
+    // Toggles the boolean value on click and immediately commits, using the native-sized renderer.
+    private static class NativeSizedBooleanEditor extends AbstractCellEditor implements TableCellEditor {
+        private boolean value;
+        private final NativeSizedBooleanRenderer renderer = new NativeSizedBooleanRenderer();
+
+        @Override public Object getCellEditorValue() { return value; }
+        @Override public boolean isCellEditable(EventObject e) { return true; }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object val,
+                boolean isSelected, int row, int col) {
+            value = !Boolean.TRUE.equals(val);
+            renderer.getTableCellRendererComponent(table, value, isSelected, false, row, col);
+            SwingUtilities.invokeLater(this::stopCellEditing);
+            return renderer;
+        }
     }
 }
