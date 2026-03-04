@@ -38,8 +38,6 @@ public class PresetStore {
         this.extensionData = api.persistence().extensionData();
     }
 
-    // --- User-level presets (flat Preferences with prefixed keys) ---
-
     public List<Preset> getUserPresets() {
         List<Preset> result = new ArrayList<>();
         String namesRaw = preferences.getString(USER_PRESET_NAMES_KEY);
@@ -54,7 +52,6 @@ public class PresetStore {
     }
 
     public void setUserPresets(List<Preset> presets) {
-        // Clear old entries
         String oldNamesRaw = preferences.getString(USER_PRESET_NAMES_KEY);
         if (oldNamesRaw != null && !oldNamesRaw.isEmpty()) {
             for (String name : oldNamesRaw.split("\n")) {
@@ -66,7 +63,6 @@ public class PresetStore {
             }
         }
 
-        // Write new entries
         List<String> names = new ArrayList<>();
         for (Preset p : presets) {
             names.add(p.getName());
@@ -75,8 +71,6 @@ public class PresetStore {
         }
         preferences.setString(USER_PRESET_NAMES_KEY, String.join("\n", names));
     }
-
-    // --- Project-level presets (PersistedObject with child objects) ---
 
     public List<Preset> getProjectPresets() {
         List<Preset> result = new ArrayList<>();
@@ -95,7 +89,6 @@ public class PresetStore {
     }
 
     public void setProjectPresets(List<Preset> presets) {
-        // Clear old child objects
         PersistedObject container = extensionData.getChildObject(PROJECT_PRESETS_KEY);
         if (container != null) {
             PersistedList<String> oldNames = container.getStringList("names");
@@ -106,7 +99,6 @@ public class PresetStore {
             }
         }
 
-        // Create fresh container and write new entries
         container = PersistedObject.persistedObject();
         List<String> names = new ArrayList<>();
         for (Preset p : presets) {
@@ -133,21 +125,17 @@ public class PresetStore {
     public List<Preset> getResolvedPresets() {
         Map<String, Preset> merged = new LinkedHashMap<>();
 
-        // Start with built-in default
         Preset builtIn = Preset.createDefault();
         merged.put(builtIn.getName(), builtIn);
 
-        // Layer user-level presets (can override built-in Default)
         for (Preset p : getUserPresets()) {
             merged.put(p.getName(), p);
         }
 
-        // Layer project-level presets (override user-level with same name)
         for (Preset p : getProjectPresets()) {
             merged.put(p.getName(), p);
         }
 
-        // Apply saved order
         List<String> order = getPresetOrder();
         if (!order.isEmpty()) {
             List<Preset> ordered = new ArrayList<>();
@@ -155,15 +143,12 @@ public class PresetStore {
                 Preset p = merged.remove(name);
                 if (p != null) ordered.add(p);
             }
-            // Append any presets not in the order list
             ordered.addAll(merged.values());
             return ordered;
         }
 
         return new ArrayList<>(merged.values());
     }
-
-    // --- Preset order ---
 
     public List<String> getPresetOrder() {
         String raw = preferences.getString(PRESET_ORDER_KEY);
@@ -178,8 +163,6 @@ public class PresetStore {
     public void setPresetOrder(List<String> order) {
         preferences.setString(PRESET_ORDER_KEY, String.join("\n", order));
     }
-
-    // --- Hotkey settings ---
 
     public boolean isHotkeyEnabled() {
         String val = preferences.getString(HOTKEY_ENABLED_KEY);

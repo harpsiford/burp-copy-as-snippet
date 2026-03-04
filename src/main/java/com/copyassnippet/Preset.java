@@ -94,31 +94,29 @@ public class Preset {
                 "_[\\w_]*"
         );
 
-        // Redact JWT signature: header.payload. is unmatched; only the signature is captured and replaced
         List<RedactionRule> defaultRedactions = List.of(
                 new RedactionRule(RedactionRule.Type.REGEX, "eyJ[\\w-]+\\.eyJ[\\w-]+\\.([\\w-]+)"),
-                // Session cookies — various frameworks
-                new RedactionRule(RedactionRule.Type.COOKIE, "PHPSESSID"),           // PHP
-                new RedactionRule(RedactionRule.Type.COOKIE, "JSESSIONID"),          // Java / Tomcat
-                new RedactionRule(RedactionRule.Type.COOKIE, "ASP\\.NET_SessionId"),   // ASP.NET
-                new RedactionRule(RedactionRule.Type.COOKIE, "\\.ASPXAUTH"),         // ASP.NET Forms Auth
-                new RedactionRule(RedactionRule.Type.COOKIE, "sessionid"),           // Django
-                new RedactionRule(RedactionRule.Type.COOKIE, "laravel_session"),     // Laravel
-                new RedactionRule(RedactionRule.Type.COOKIE, "connect\\.sid"),       // Express / connect
-                new RedactionRule(RedactionRule.Type.COOKIE, "CFID"),               // ColdFusion
-                new RedactionRule(RedactionRule.Type.COOKIE, "CFTOKEN"),            // ColdFusion
-                new RedactionRule(RedactionRule.Type.COOKIE, "S?SESS\\w+"),         // Drupal
-                new RedactionRule(RedactionRule.Type.COOKIE, "wordpress_logged_in_\\w+"), // WordPress
-                new RedactionRule(RedactionRule.Type.COOKIE, "ci_session"),         // CodeIgniter
-                new RedactionRule(RedactionRule.Type.COOKIE, "AWSALB"),             // AWS ALB sticky sessions
-                new RedactionRule(RedactionRule.Type.COOKIE, "AWSALBCORS")          // AWS ALB (CORS)
+                new RedactionRule(RedactionRule.Type.COOKIE, "PHPSESSID"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "JSESSIONID"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "ASP\\.NET_SessionId"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "\\.ASPXAUTH"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "sessionid"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "laravel_session"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "connect\\.sid"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "CFID"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "CFTOKEN"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "S?SESS\\w+"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "wordpress_logged_in_\\w+"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "ci_session"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "AWSALB"),
+                new RedactionRule(RedactionRule.Type.COOKIE, "AWSALBCORS"),
+                new RedactionRule(RedactionRule.Type.HEADER, "Authorization"),
+                new RedactionRule(RedactionRule.Type.HEADER, "X-Authorization")
         );
 
         return new Preset("Default", defaultHeaders, defaultCookies, defaultParams,
                 defaultRedactions, DEFAULT_REPLACEMENT, DEFAULT_TEMPLATE, true);
     }
-
-    // --- Getters and setters ---
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -143,8 +141,6 @@ public class Preset {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
-
-    // --- PersistedObject serialization (for project-level storage) ---
 
     public void saveTo(PersistedObject obj) {
         obj.setString("name", name);
@@ -203,8 +199,6 @@ public class Preset {
                 enabled
         );
     }
-
-    // --- Preferences serialization (for user-level storage, flat key-value) ---
 
     public void saveTo(Preferences prefs, String keyPrefix) {
         prefs.setString(keyPrefix + ".name", name);

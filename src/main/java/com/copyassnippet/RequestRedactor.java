@@ -93,17 +93,6 @@ public class RequestRedactor {
     }
 
     public HttpRequest redact(HttpRequest request) {
-        // --- Hardcoded auth header redaction ---
-        if (request.hasHeader("Authorization")) {
-            request = request.withUpdatedHeader("Authorization",
-                    request.headerValue("Authorization").replaceAll(" .+$", " [REDACTED]"));
-        }
-        if (request.hasHeader("X-Authorization")) {
-            request = request.withUpdatedHeader("X-Authorization",
-                    request.headerValue("X-Authorization").replaceAll(" .+$", " [REDACTED]"));
-        }
-
-        // --- Cookie removal ---
         if (request.hasHeader("Cookie")) {
             List<String> newCookies = Arrays.stream(request.headerValue("Cookie").split(";"))
                     .map(String::trim)
@@ -119,13 +108,11 @@ public class RequestRedactor {
             }
         }
 
-        // --- Header removal ---
         List<HttpHeader> headersToRemove = request.headers().stream()
                 .filter(h -> headerPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches()))
                 .collect(Collectors.toList());
         request = request.withRemovedHeaders(headersToRemove);
 
-        // --- Param removal ---
         if (!paramPatterns.isEmpty()) {
             List<ParsedHttpParameter> paramsToRemove = request.parameters().stream()
                     .filter(p -> p.type() == HttpParameterType.URL
@@ -138,7 +125,6 @@ public class RequestRedactor {
             }
         }
 
-        // --- Cookie value redaction (keep cookie, replace value) ---
         if (!redactCookiePatterns.isEmpty() && request.hasHeader("Cookie")) {
             List<String> redactedCookies = Arrays.stream(request.headerValue("Cookie").split(";"))
                     .map(String::trim)
@@ -153,7 +139,6 @@ public class RequestRedactor {
             request = request.withUpdatedHeader("Cookie", String.join("; ", redactedCookies));
         }
 
-        // --- Header value redaction (keep header, replace value) ---
         if (!redactHeaderPatterns.isEmpty()) {
             for (HttpHeader h : new ArrayList<>(request.headers())) {
                 if (redactHeaderPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches())) {
@@ -225,12 +210,6 @@ public class RequestRedactor {
         return response;
     }
 
-    /**
-     * Applies REGEX-type redaction rules to a raw HTTP message string.
-     * Every capturing group in the pattern is replaced with the replacement string;
-     * non-capturing text within the match is preserved.
-     * If the pattern has no capturing groups, the entire match is replaced.
-     */
     private String applyRegexRedactions(String text) {
         for (Pattern p : redactRegexPatterns) {
             Matcher m = p.matcher(text);
