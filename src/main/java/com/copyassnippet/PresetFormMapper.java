@@ -8,13 +8,13 @@ final class PresetFormMapper {
     }
 
     static PresetFormData forNewPreset() {
-        return fromPreset(Preset.createDefault(), "User").withName("");
+        return fromPreset(Preset.createDefault(), PresetScope.USER).withName("");
     }
 
     static PresetFormData empty() {
         return new PresetFormData(
                 "",
-                "User",
+                PresetScope.USER,
                 List.of(),
                 List.of(),
                 List.of(),
@@ -24,7 +24,7 @@ final class PresetFormMapper {
         );
     }
 
-    static PresetFormData fromPreset(Preset preset, String scope) {
+    static PresetFormData fromPreset(Preset preset, PresetScope scope) {
         return new PresetFormData(
                 preset.getName(),
                 scope,

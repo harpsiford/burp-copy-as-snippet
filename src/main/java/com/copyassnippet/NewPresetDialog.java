@@ -34,10 +34,10 @@ public class NewPresetDialog {
             }
 
             Preset preset = PresetFormMapper.toPreset(formData, true);
-            String scope = formData.getScope();
+            PresetScope scope = formData.getScope();
             String name = preset.getName();
 
-            if ("Project".equals(scope)) {
+            if (scope == PresetScope.PROJECT) {
                 List<Preset> list = new ArrayList<>(presetStore.getProjectPresets());
                 list.removeIf(p -> p.getName().equals(name));
                 list.add(preset);

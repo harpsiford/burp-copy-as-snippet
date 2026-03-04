@@ -5,7 +5,7 @@ import java.util.List;
 
 final class PresetFormData {
     private final String name;
-    private final String scope;
+    private final PresetScope scope;
     private final List<String> headerRegexes;
     private final List<String> cookieRegexes;
     private final List<String> paramRegexes;
@@ -15,7 +15,7 @@ final class PresetFormData {
 
     PresetFormData(
             String name,
-            String scope,
+            PresetScope scope,
             List<String> headerRegexes,
             List<String> cookieRegexes,
             List<String> paramRegexes,
@@ -23,7 +23,7 @@ final class PresetFormData {
             List<RedactionRule> redactionRules,
             String template) {
         this.name = name != null ? name : "";
-        this.scope = "Project".equals(scope) ? "Project" : "User";
+        this.scope = scope != null ? scope : PresetScope.USER;
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
         this.paramRegexes = new ArrayList<>(paramRegexes);
@@ -36,7 +36,7 @@ final class PresetFormData {
         return name;
     }
 
-    String getScope() {
+    PresetScope getScope() {
         return scope;
     }
 

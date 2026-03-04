@@ -8,7 +8,7 @@ import java.util.List;
 class PresetFormPanel extends JPanel {
 
     private final JTextField nameField;
-    private final JComboBox<String> scopeCombo;
+    private final JComboBox<PresetScope> scopeCombo;
     private final JTextArea headerRegexesArea;
     private final JTextArea cookieRegexesArea;
     private final JTextArea paramRegexesArea;
@@ -24,7 +24,7 @@ class PresetFormPanel extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
         nameField = new JTextField();
-        scopeCombo = new JComboBox<>(new String[]{"User", "Project"});
+        scopeCombo = new JComboBox<>(PresetScope.EDITABLE_VALUES);
         Font textAreaFont = UIManager.getFont("TextArea.font");
         Font textFieldFont = UIManager.getFont("TextField.font");
 
@@ -129,7 +129,7 @@ class PresetFormPanel extends JPanel {
 
     void setFormData(PresetFormData formData) {
         nameField.setText(formData.getName());
-        scopeCombo.setSelectedItem(formData.getScope());
+        scopeCombo.setSelectedItem(formData.getScope().toEditableScope());
         headerRegexesArea.setText(String.join("\n", formData.getHeaderRegexes()));
         cookieRegexesArea.setText(String.join("\n", formData.getCookieRegexes()));
         paramRegexesArea.setText(String.join("\n", formData.getParamRegexes()));
@@ -145,7 +145,7 @@ class PresetFormPanel extends JPanel {
 
         return new PresetFormData(
                 nameField.getText(),
-                (String) scopeCombo.getSelectedItem(),
+                (PresetScope) scopeCombo.getSelectedItem(),
                 parseLines(headerRegexesArea.getText()),
                 parseLines(cookieRegexesArea.getText()),
                 parseLines(paramRegexesArea.getText()),
