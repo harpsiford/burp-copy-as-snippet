@@ -22,13 +22,17 @@ public class NewPresetDialog {
         JTextField nameField = new JTextField();
         JComboBox<String> scopeCombo = new JComboBox<>(new String[]{"User", "Project"});
 
-        JTextArea headerRegexesArea = new JTextArea(6, 40);
+        JTextArea headerRegexesArea = new JTextArea(6, 30);
         headerRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         headerRegexesArea.setText(String.join("\n", defaults.getHeaderRegexes()));
 
-        JTextArea cookieRegexesArea = new JTextArea(4, 40);
+        JTextArea cookieRegexesArea = new JTextArea(6, 20);
         cookieRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         cookieRegexesArea.setText(String.join("\n", defaults.getCookieRegexes()));
+
+        JTextArea paramRegexesArea = new JTextArea(6, 20);
+        paramRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        paramRegexesArea.setText(String.join("\n", defaults.getParamRegexes()));
 
         JTextArea templateArea = new JTextArea(5, 40);
         templateArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
@@ -50,18 +54,21 @@ public class NewPresetDialog {
         JLabel placeholderHint = new JLabel("Template placeholders: {{request}}, {{response}}");
         placeholderHint.setFont(placeholderHint.getFont().deriveFont(Font.ITALIC, 11f));
 
+        JPanel regexColumns = new JPanel(new GridLayout(1, 3, 10, 0));
+        regexColumns.add(labeledScroll("Header regexes (one per line):", headerRegexesArea));
+        regexColumns.add(labeledScroll("Cookie regexes (one per line):", cookieRegexesArea));
+        regexColumns.add(labeledScroll("Param regexes (one per line):", paramRegexesArea));
+
         form.add(nameRow);
         form.add(Box.createVerticalStrut(5));
         form.add(scopeRow);
         form.add(Box.createVerticalStrut(10));
-        form.add(labeledScroll("Header regexes (one per line):", headerRegexesArea));
-        form.add(Box.createVerticalStrut(10));
-        form.add(labeledScroll("Cookie regexes (one per line):", cookieRegexesArea));
+        form.add(regexColumns);
         form.add(Box.createVerticalStrut(10));
         form.add(placeholderHint);
         form.add(labeledScroll("Template:", templateArea));
 
-        form.setPreferredSize(new Dimension(500, 500));
+        form.setPreferredSize(new Dimension(800, 500));
 
         while (true) {
             int result = JOptionPane.showConfirmDialog(
@@ -80,9 +87,10 @@ public class NewPresetDialog {
             String scope = (String) scopeCombo.getSelectedItem();
             List<String> headers = parseLines(headerRegexesArea.getText());
             List<String> cookies = parseLines(cookieRegexesArea.getText());
+            List<String> params = parseLines(paramRegexesArea.getText());
             String template = templateArea.getText();
 
-            Preset preset = new Preset(name, headers, cookies, template);
+            Preset preset = new Preset(name, headers, cookies, params, template);
 
             if ("Project".equals(scope)) {
                 List<Preset> list = new ArrayList<>(presetStore.getProjectPresets());

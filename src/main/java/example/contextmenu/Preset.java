@@ -12,22 +12,24 @@ public class Preset {
     private String name;
     private List<String> headerRegexes;
     private List<String> cookieRegexes;
+    private List<String> paramRegexes;
     private String template;
     private boolean enabled;
 
     public static final String DEFAULT_TEMPLATE =
             "HTTP request:\r\n```\r\n{{request}}\r\n```\r\n\r\nHTTP response:\r\n```\r\n{{response}}\r\n```";
 
-    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template, boolean enabled) {
+    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, List<String> paramRegexes, String template, boolean enabled) {
         this.name = name;
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
+        this.paramRegexes = new ArrayList<>(paramRegexes);
         this.template = template;
         this.enabled = enabled;
     }
 
-    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, String template) {
-        this(name, headerRegexes, cookieRegexes, template, true);
+    public Preset(String name, List<String> headerRegexes, List<String> cookieRegexes, List<String> paramRegexes, String template) {
+        this(name, headerRegexes, cookieRegexes, paramRegexes, template, true);
     }
 
     public static Preset createDefault() {
@@ -72,7 +74,14 @@ public class Preset {
                 "^GOOG\\w+$"
         );
 
-        return new Preset("Default", defaultHeaders, defaultCookies, DEFAULT_TEMPLATE);
+        List<String> defaultParams = List.of(
+                "^utm_\\w+$",
+                "^fbclid$",
+                "^gclid$",
+                "^_[\\w_]*$"
+        );
+
+        return new Preset("Default", defaultHeaders, defaultCookies, defaultParams, DEFAULT_TEMPLATE);
     }
 
     // --- Getters and setters ---
@@ -99,6 +108,14 @@ public class Preset {
 
     public void setCookieRegexes(List<String> cookieRegexes) {
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
+    }
+
+    public List<String> getParamRegexes() {
+        return paramRegexes;
+    }
+
+    public void setParamRegexes(List<String> paramRegexes) {
+        this.paramRegexes = new ArrayList<>(paramRegexes);
     }
 
     public String getTemplate() {
@@ -131,6 +148,10 @@ public class Preset {
         PersistedList<String> cookieList = PersistedList.persistedStringList();
         cookieList.addAll(cookieRegexes);
         obj.setStringList("cookieRegexes", cookieList);
+
+        PersistedList<String> paramList = PersistedList.persistedStringList();
+        paramList.addAll(paramRegexes);
+        obj.setStringList("paramRegexes", paramList);
     }
 
     public static Preset loadFrom(PersistedObject obj) {
@@ -140,6 +161,7 @@ public class Preset {
 
         PersistedList<String> headers = obj.getStringList("headerRegexes");
         PersistedList<String> cookies = obj.getStringList("cookieRegexes");
+        PersistedList<String> params = obj.getStringList("paramRegexes");
         String template = obj.getString("template");
 
         String enabledStr = obj.getString("enabled");
@@ -149,6 +171,7 @@ public class Preset {
                 name,
                 headers != null ? new ArrayList<>(headers) : List.of(),
                 cookies != null ? new ArrayList<>(cookies) : List.of(),
+                params != null ? new ArrayList<>(params) : List.of(),
                 template != null ? template : DEFAULT_TEMPLATE,
                 enabled
         );
@@ -160,6 +183,7 @@ public class Preset {
         prefs.setString(keyPrefix + ".name", name);
         prefs.setString(keyPrefix + ".headerRegexes", String.join("\n", headerRegexes));
         prefs.setString(keyPrefix + ".cookieRegexes", String.join("\n", cookieRegexes));
+        prefs.setString(keyPrefix + ".paramRegexes", String.join("\n", paramRegexes));
         prefs.setString(keyPrefix + ".template", template);
         prefs.setString(keyPrefix + ".enabled", String.valueOf(enabled));
     }
@@ -170,6 +194,7 @@ public class Preset {
 
         String headersRaw = prefs.getString(keyPrefix + ".headerRegexes");
         String cookiesRaw = prefs.getString(keyPrefix + ".cookieRegexes");
+        String paramsRaw = prefs.getString(keyPrefix + ".paramRegexes");
         String template = prefs.getString(keyPrefix + ".template");
 
         String enabledStr = prefs.getString(keyPrefix + ".enabled");
@@ -179,6 +204,7 @@ public class Preset {
                 name,
                 headersRaw != null && !headersRaw.isEmpty() ? List.of(headersRaw.split("\n")) : List.of(),
                 cookiesRaw != null && !cookiesRaw.isEmpty() ? List.of(cookiesRaw.split("\n")) : List.of(),
+                paramsRaw != null && !paramsRaw.isEmpty() ? List.of(paramsRaw.split("\n")) : List.of(),
                 template != null ? template : DEFAULT_TEMPLATE,
                 enabled
         );

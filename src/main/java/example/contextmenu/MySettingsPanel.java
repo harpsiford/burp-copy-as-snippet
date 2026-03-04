@@ -26,6 +26,7 @@ public class MySettingsPanel implements SettingsPanel {
     private final JComboBox<String> scopeCombo;
     private final JTextArea headerRegexesArea;
     private final JTextArea cookieRegexesArea;
+    private final JTextArea paramRegexesArea;
     private final JTextArea templateArea;
     private final JButton deleteButton;
     private final JButton duplicateButton;
@@ -98,10 +99,12 @@ public class MySettingsPanel implements SettingsPanel {
         nameField = new JTextField();
         scopeCombo = new JComboBox<>(new String[]{"User", "Project"});
 
-        headerRegexesArea = new JTextArea(6, 40);
+        headerRegexesArea = new JTextArea(6, 30);
         headerRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
-        cookieRegexesArea = new JTextArea(4, 40);
+        cookieRegexesArea = new JTextArea(6, 20);
         cookieRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        paramRegexesArea = new JTextArea(6, 20);
+        paramRegexesArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         templateArea = new JTextArea(5, 40);
         templateArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
 
@@ -131,13 +134,16 @@ public class MySettingsPanel implements SettingsPanel {
         JLabel placeholderHint = new JLabel("Template placeholders: {{request}}, {{response}}");
         placeholderHint.setFont(placeholderHint.getFont().deriveFont(Font.ITALIC, 11f));
 
+        JPanel regexColumns = new JPanel(new GridLayout(1, 3, 10, 0));
+        regexColumns.add(labeledScroll("Header regexes (one per line):", headerRegexesArea));
+        regexColumns.add(labeledScroll("Cookie regexes (one per line):", cookieRegexesArea));
+        regexColumns.add(labeledScroll("Param regexes (one per line):", paramRegexesArea));
+
         editorPanel.add(nameRow);
         editorPanel.add(Box.createVerticalStrut(5));
         editorPanel.add(scopeRow);
         editorPanel.add(Box.createVerticalStrut(10));
-        editorPanel.add(labeledScroll("Header regexes (one per line):", headerRegexesArea));
-        editorPanel.add(Box.createVerticalStrut(10));
-        editorPanel.add(labeledScroll("Cookie regexes (one per line):", cookieRegexesArea));
+        editorPanel.add(regexColumns);
         editorPanel.add(Box.createVerticalStrut(10));
         editorPanel.add(placeholderHint);
         editorPanel.add(labeledScroll("Template:", templateArea));
@@ -293,6 +299,7 @@ public class MySettingsPanel implements SettingsPanel {
         scopeCombo.setSelectedItem("User");
         headerRegexesArea.setText(String.join("\n", defaults.getHeaderRegexes()));
         cookieRegexesArea.setText(String.join("\n", defaults.getCookieRegexes()));
+        paramRegexesArea.setText(String.join("\n", defaults.getParamRegexes()));
         templateArea.setText(defaults.getTemplate());
         setEditorEnabled(true);
         nameField.requestFocusInWindow();
@@ -379,6 +386,7 @@ public class MySettingsPanel implements SettingsPanel {
         String scope = (String) scopeCombo.getSelectedItem();
         List<String> headers = parseLines(headerRegexesArea.getText());
         List<String> cookies = parseLines(cookieRegexesArea.getText());
+        List<String> params = parseLines(paramRegexesArea.getText());
         String template = templateArea.getText();
 
         // Preserve the current enabled state if editing, default to true for new
@@ -387,7 +395,7 @@ public class MySettingsPanel implements SettingsPanel {
             enabled = tableModel.getRow(editingRow).preset.isEnabled();
         }
 
-        Preset preset = new Preset(name, headers, cookies, template, enabled);
+        Preset preset = new Preset(name, headers, cookies, params, template, enabled);
 
         // If editing an existing row and the name/scope changed, remove the old one
         if (editingRow >= 0) {
@@ -471,6 +479,7 @@ public class MySettingsPanel implements SettingsPanel {
         scopeCombo.setSelectedItem(scope.equals("Project") ? "Project" : "User");
         headerRegexesArea.setText(String.join("\n", preset.getHeaderRegexes()));
         cookieRegexesArea.setText(String.join("\n", preset.getCookieRegexes()));
+        paramRegexesArea.setText(String.join("\n", preset.getParamRegexes()));
         templateArea.setText(preset.getTemplate());
     }
 
@@ -479,6 +488,7 @@ public class MySettingsPanel implements SettingsPanel {
         scopeCombo.setSelectedIndex(0);
         headerRegexesArea.setText("");
         cookieRegexesArea.setText("");
+        paramRegexesArea.setText("");
         templateArea.setText("");
     }
 
@@ -487,6 +497,7 @@ public class MySettingsPanel implements SettingsPanel {
         scopeCombo.setEnabled(enabled);
         headerRegexesArea.setEnabled(enabled);
         cookieRegexesArea.setEnabled(enabled);
+        paramRegexesArea.setEnabled(enabled);
         templateArea.setEnabled(enabled);
         saveButton.setEnabled(enabled);
         cancelButton.setEnabled(enabled);

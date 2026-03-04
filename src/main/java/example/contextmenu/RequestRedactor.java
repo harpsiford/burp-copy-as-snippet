@@ -2,6 +2,8 @@ package example.contextmenu;
 
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.http.message.params.HttpParameterType;
+import burp.api.montoya.http.message.params.ParsedHttpParameter;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 
@@ -18,6 +20,7 @@ public class RequestRedactor {
 
     private final List<Pattern> headerPatterns;
     private final List<Pattern> cookiePatterns;
+    private final List<Pattern> paramPatterns;
     private final String template;
 
     public RequestRedactor(Preset preset) {
@@ -25,6 +28,9 @@ public class RequestRedactor {
                 .map(r -> Pattern.compile(r, Pattern.CASE_INSENSITIVE))
                 .collect(Collectors.toList());
         this.cookiePatterns = preset.getCookieRegexes().stream()
+                .map(Pattern::compile)
+                .collect(Collectors.toList());
+        this.paramPatterns = preset.getParamRegexes().stream()
                 .map(Pattern::compile)
                 .collect(Collectors.toList());
         this.template = preset.getTemplate();
@@ -57,7 +63,21 @@ public class RequestRedactor {
         List<HttpHeader> headersToRemove = request.headers().stream()
                 .filter(h -> headerPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches()))
                 .collect(Collectors.toList());
-        return request.withRemovedHeaders(headersToRemove);
+        request = request.withRemovedHeaders(headersToRemove);
+
+        if (!paramPatterns.isEmpty()) {
+            List<ParsedHttpParameter> paramsToRemove = request.parameters().stream()
+                    .filter(p -> p.type() == HttpParameterType.URL
+                              || p.type() == HttpParameterType.BODY
+                              || p.type() == HttpParameterType.JSON)
+                    .filter(p -> paramPatterns.stream().anyMatch(pat -> pat.matcher(p.name()).matches()))
+                    .collect(Collectors.toList());
+            if (!paramsToRemove.isEmpty()) {
+                request = request.withRemovedParameters(paramsToRemove);
+            }
+        }
+
+        return request;
     }
 
     public HttpResponse redact(HttpResponse response) {
