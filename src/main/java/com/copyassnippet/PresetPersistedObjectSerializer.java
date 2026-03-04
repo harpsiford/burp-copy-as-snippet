@@ -19,15 +19,27 @@ final class PresetPersistedObjectSerializer {
         object.setString("replacementString", preset.getReplacementString());
 
         PersistedList<String> headerList = PersistedList.persistedStringList();
-        headerList.addAll(preset.getHeaderRegexes());
+        for (String headerRegex : preset.getHeaderRegexes()) {
+            if (headerRegex != null) {
+                headerList.add(headerRegex);
+            }
+        }
         object.setStringList("headerRegexes", headerList);
 
         PersistedList<String> cookieList = PersistedList.persistedStringList();
-        cookieList.addAll(preset.getCookieRegexes());
+        for (String cookieRegex : preset.getCookieRegexes()) {
+            if (cookieRegex != null) {
+                cookieList.add(cookieRegex);
+            }
+        }
         object.setStringList("cookieRegexes", cookieList);
 
         PersistedList<String> paramList = PersistedList.persistedStringList();
-        paramList.addAll(preset.getParamRegexes());
+        for (String paramRegex : preset.getParamRegexes()) {
+            if (paramRegex != null) {
+                paramList.add(paramRegex);
+            }
+        }
         object.setStringList("paramRegexes", paramList);
 
         PersistedList<String> ruleList = PersistedList.persistedStringList();
@@ -62,6 +74,9 @@ final class PresetPersistedObjectSerializer {
         List<RedactionRule> rules = new ArrayList<>();
         if (rulesRaw != null) {
             for (String serialized : rulesRaw) {
+                if (serialized == null) {
+                    continue;
+                }
                 RedactionRule rule = RedactionRule.fromSerializedString(serialized);
                 if (rule != null) {
                     rules.add(rule);
@@ -72,13 +87,27 @@ final class PresetPersistedObjectSerializer {
         return new Preset(
                 id != null ? id : fallbackId,
                 name,
-                headers != null ? new ArrayList<>(headers) : List.of(),
-                cookies != null ? new ArrayList<>(cookies) : List.of(),
-                params != null ? new ArrayList<>(params) : List.of(),
+                sanitizedStrings(headers),
+                sanitizedStrings(cookies),
+                sanitizedStrings(params),
                 rules,
                 replacement != null ? replacement : DefaultPresetFactory.DEFAULT_REPLACEMENT,
                 template != null ? template : DefaultPresetFactory.DEFAULT_TEMPLATE,
                 enabled
         );
+    }
+
+    private static List<String> sanitizedStrings(Iterable<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+
+        List<String> result = new ArrayList<>();
+        for (String value : values) {
+            if (value != null) {
+                result.add(value);
+            }
+        }
+        return result;
     }
 }

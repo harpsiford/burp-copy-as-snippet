@@ -12,6 +12,8 @@ interface SettingsView {
 
         void onDuplicate();
 
+        void onEdit();
+
         void onMoveUp();
 
         void onMoveDown();
@@ -49,7 +51,7 @@ interface SettingsView {
 
     void selectRow(int rowIndex);
 
-    void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean moveUpEnabled, boolean moveDownEnabled);
+    void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean moveUpEnabled, boolean moveDownEnabled);
 
     void setEditorFormData(PresetFormData formData);
 

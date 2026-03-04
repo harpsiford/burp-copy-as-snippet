@@ -6,6 +6,8 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.EventObject;
 import java.util.List;
@@ -20,10 +22,13 @@ final class SwingSettingsView implements SettingsView {
     private final PresetFormPanel presetFormPanel;
     private final JButton deleteButton;
     private final JButton duplicateButton;
+    private final JButton editButton;
     private final JButton moveUpButton;
     private final JButton moveDownButton;
     private final JButton saveButton;
     private final JButton cancelButton;
+    private JDialog editorDialog;
+    private final JPanel editorPanel;
 
     private final JCheckBox hotkeyEnabledCheckbox;
     private final JTextField hotkeyField;
@@ -48,6 +53,7 @@ final class SwingSettingsView implements SettingsView {
         JButton addButton = new JButton("Add");
         deleteButton = new JButton("Delete");
         duplicateButton = new JButton("Duplicate");
+        editButton = new JButton("Edit");
         moveUpButton = new JButton("Up");
         moveDownButton = new JButton("Down");
         JButton restoreDefaultsButton = new JButton("Restore defaults");
@@ -55,13 +61,14 @@ final class SwingSettingsView implements SettingsView {
         addButton.addActionListener(e -> notifyAdd());
         deleteButton.addActionListener(e -> notifyDelete());
         duplicateButton.addActionListener(e -> notifyDuplicate());
+        editButton.addActionListener(e -> notifyEdit());
         moveUpButton.addActionListener(e -> notifyMoveUp());
         moveDownButton.addActionListener(e -> notifyMoveDown());
         restoreDefaultsButton.addActionListener(e -> notifyRestoreDefaults());
 
         JPanel buttonBar = new JPanel();
         buttonBar.setLayout(new BoxLayout(buttonBar, BoxLayout.Y_AXIS));
-        for (JButton button : new JButton[]{addButton, deleteButton, duplicateButton, moveUpButton, moveDownButton, restoreDefaultsButton}) {
+        for (JButton button : new JButton[]{addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton, restoreDefaultsButton}) {
             button.setAlignmentX(Component.LEFT_ALIGNMENT);
             button.setMaximumSize(new Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
             buttonBar.add(button);
@@ -86,10 +93,10 @@ final class SwingSettingsView implements SettingsView {
         editorButtons.add(cancelButton);
         editorButtons.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
 
-        JPanel editorPanel = new JPanel(new BorderLayout(0, 0));
-        editorPanel.setBorder(BorderFactory.createTitledBorder("Preset editor"));
+        editorPanel = new JPanel(new BorderLayout(0, 0));
         editorPanel.add(presetFormPanel, BorderLayout.CENTER);
         editorPanel.add(editorButtons, BorderLayout.SOUTH);
+        editorPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor)");
         Icon hotkeyIcon = scaledNativeCheckboxIcon(
@@ -117,33 +124,34 @@ final class SwingSettingsView implements SettingsView {
 
         JPanel hotkeyPanel = new JPanel();
         hotkeyPanel.setLayout(new BoxLayout(hotkeyPanel, BoxLayout.Y_AXIS));
-        hotkeyPanel.setBorder(BorderFactory.createTitledBorder("Keyboard shortcut (uses the first enabled preset)"));
         hotkeyEnabledCheckbox.setAlignmentX(Component.LEFT_ALIGNMENT);
         hotkeyRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         hotkeyPanel.add(hotkeyEnabledCheckbox);
         hotkeyPanel.add(Box.createVerticalStrut(5));
         hotkeyPanel.add(hotkeyRow);
         hotkeyPanel.add(Box.createVerticalStrut(3));
+        JPanel hotkeySection = sectionPanel("Keyboard Shortcut", hotkeyPanel);
 
         JPanel topWrapper = new JPanel();
         topWrapper.setLayout(new BoxLayout(topWrapper, BoxLayout.Y_AXIS));
+        JPanel presetsSection = sectionPanel("Presets", topSection);
+        presetsSection.setAlignmentX(Component.LEFT_ALIGNMENT);
         topSection.setAlignmentX(Component.LEFT_ALIGNMENT);
-        hotkeyPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topWrapper.add(topSection);
+        hotkeySection.setAlignmentX(Component.LEFT_ALIGNMENT);
+        topWrapper.add(presetsSection);
         topWrapper.add(Box.createVerticalStrut(10));
-        topWrapper.add(hotkeyPanel);
+        topWrapper.add(hotkeySection);
 
         panel = new JPanel(new BorderLayout(0, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.add(topWrapper, BorderLayout.NORTH);
-        panel.add(editorPanel, BorderLayout.CENTER);
         panel.addHierarchyListener(e -> {
             if ((e.getChangeFlags() & java.awt.event.HierarchyEvent.SHOWING_CHANGED) != 0 && panel.isShowing()) {
                 notifyViewShown();
             }
         });
 
-        setPresetActions(false, false, false, false);
+        setPresetActions(false, false, false, false, false);
         setEditorEnabled(false);
     }
 
@@ -191,9 +199,10 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
-    public void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean moveUpEnabled, boolean moveDownEnabled) {
+    public void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean moveUpEnabled, boolean moveDownEnabled) {
         deleteButton.setEnabled(deleteEnabled);
         duplicateButton.setEnabled(duplicateEnabled);
+        editButton.setEnabled(editEnabled);
         moveUpButton.setEnabled(moveUpEnabled);
         moveDownButton.setEnabled(moveDownEnabled);
     }
@@ -213,16 +222,35 @@ final class SwingSettingsView implements SettingsView {
         presetFormPanel.setFormEnabled(enabled);
         saveButton.setEnabled(enabled);
         cancelButton.setEnabled(enabled);
+        if (enabled) {
+            SwingUtilities.invokeLater(() -> {
+                JDialog dialog = ensureEditorDialog();
+                if (!editorDialog.isVisible()) {
+                    dialog.pack();
+                    dialog.setLocationRelativeTo(panel);
+                    dialog.setVisible(true);
+                } else {
+                    dialog.toFront();
+                    dialog.requestFocus();
+                }
+            });
+            return;
+        }
+
+        if (editorDialog != null && editorDialog.isVisible()) {
+            editorDialog.setVisible(false);
+        }
     }
 
     @Override
     public void focusEditorNameField() {
-        presetFormPanel.focusNameField();
+        SwingUtilities.invokeLater(presetFormPanel::focusNameField);
     }
 
     @Override
     public void showValidationWarning(String message) {
-        JOptionPane.showMessageDialog(panel, message, "Validation", JOptionPane.WARNING_MESSAGE);
+        Component parent = editorDialog != null && editorDialog.isVisible() ? editorDialog : panel;
+        JOptionPane.showMessageDialog(parent, message, "Validation", JOptionPane.WARNING_MESSAGE);
     }
 
     @Override
@@ -269,6 +297,12 @@ final class SwingSettingsView implements SettingsView {
     private void notifyDuplicate() {
         if (listener != null) {
             listener.onDuplicate();
+        }
+    }
+
+    private void notifyEdit() {
+        if (listener != null) {
+            listener.onEdit();
         }
     }
 
@@ -326,6 +360,39 @@ final class SwingSettingsView implements SettingsView {
         }
     }
 
+    private JDialog ensureEditorDialog() {
+        Window owner = SwingUtilities.getWindowAncestor(panel);
+        if (editorDialog == null || (owner != null && editorDialog.getOwner() != owner)) {
+            if (editorDialog != null) {
+                editorDialog.dispose();
+            }
+            editorDialog = createEditorDialog(owner);
+        }
+        return editorDialog;
+    }
+
+    private JDialog createEditorDialog(Window owner) {
+        JDialog dialog;
+        if (owner instanceof Dialog) {
+            dialog = new JDialog((Dialog) owner, "Preset Editor", Dialog.ModalityType.DOCUMENT_MODAL);
+        } else if (owner instanceof Frame) {
+            dialog = new JDialog((Frame) owner, "Preset Editor", Dialog.ModalityType.DOCUMENT_MODAL);
+        } else {
+            dialog = new JDialog((Frame) null, "Preset Editor", Dialog.ModalityType.APPLICATION_MODAL);
+        }
+        dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        dialog.setContentPane(editorPanel);
+        dialog.setMinimumSize(new Dimension(820, 650));
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent event) {
+                notifyCancel();
+            }
+        });
+        dialog.getRootPane().setDefaultButton(saveButton);
+        return dialog;
+    }
+
     private static Icon scaledNativeCheckboxIcon(int targetSize) {
         Icon raw = UIManager.getIcon("CheckBox.icon");
         if (raw == null || raw.getIconWidth() <= 0 || raw.getIconWidth() == targetSize) {
@@ -354,6 +421,21 @@ final class SwingSettingsView implements SettingsView {
                 graphics2D.dispose();
             }
         };
+    }
+
+    private static JPanel sectionPanel(String title, JComponent content) {
+        JPanel section = new JPanel(new BorderLayout(0, 4));
+        section.add(sectionHeader(title), BorderLayout.NORTH);
+        section.add(content, BorderLayout.CENTER);
+        return section;
+    }
+
+    private static JLabel sectionHeader(String title) {
+        JLabel label = new JLabel(title);
+        Font baseFont = UIManager.getFont("Label.font");
+        Font sourceFont = baseFont != null ? baseFont : label.getFont();
+        label.setFont(sourceFont.deriveFont(Font.BOLD, Math.max(20f, sourceFont.getSize2D() + 6f)));
+        return label;
     }
 
     private interface EnabledToggleListener {

@@ -14,9 +14,9 @@ final class PresetPreferencesSerializer {
     static void save(Preferences prefs, String keyPrefix, Preset preset) {
         prefs.setString(keyPrefix + ".id", preset.getId());
         prefs.setString(keyPrefix + ".name", preset.getName());
-        prefs.setString(keyPrefix + ".headerRegexes", String.join("\n", preset.getHeaderRegexes()));
-        prefs.setString(keyPrefix + ".cookieRegexes", String.join("\n", preset.getCookieRegexes()));
-        prefs.setString(keyPrefix + ".paramRegexes", String.join("\n", preset.getParamRegexes()));
+        prefs.setString(keyPrefix + ".headerRegexes", joinSanitizedLines(preset.getHeaderRegexes()));
+        prefs.setString(keyPrefix + ".cookieRegexes", joinSanitizedLines(preset.getCookieRegexes()));
+        prefs.setString(keyPrefix + ".paramRegexes", joinSanitizedLines(preset.getParamRegexes()));
         prefs.setString(keyPrefix + ".template", preset.getTemplate());
         prefs.setString(keyPrefix + ".enabled", String.valueOf(preset.isEnabled()));
         prefs.setString(keyPrefix + ".replacementString", preset.getReplacementString());
@@ -70,6 +70,22 @@ final class PresetPreferencesSerializer {
         if (value == null || value.isEmpty()) {
             return List.of();
         }
-        return List.of(value.split("\\n"));
+        List<String> result = new ArrayList<>();
+        for (String line : value.split("\\R")) {
+            if (line != null && !line.isEmpty()) {
+                result.add(line);
+            }
+        }
+        return result;
+    }
+
+    private static String joinSanitizedLines(List<String> values) {
+        List<String> sanitized = new ArrayList<>();
+        for (String value : values) {
+            if (value != null) {
+                sanitized.add(value);
+            }
+        }
+        return String.join("\n", sanitized);
     }
 }

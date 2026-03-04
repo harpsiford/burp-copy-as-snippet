@@ -68,14 +68,29 @@ class PresetFormPanel extends JPanel {
         JScrollPane ruleScroll = new JScrollPane(ruleTable);
         ruleScroll.setPreferredSize(new Dimension(500, 100));
 
-        JPanel ruleButtonBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 0));
+        JPanel ruleButtonBar = new JPanel();
+        ruleButtonBar.setLayout(new BoxLayout(ruleButtonBar, BoxLayout.Y_AXIS));
         ruleButtonBar.add(ruleAddButton);
+        ruleButtonBar.add(Box.createVerticalStrut(3));
         ruleButtonBar.add(ruleDeleteButton);
+        ruleButtonBar.add(Box.createVerticalGlue());
+
+        JPanel ruleContent = new JPanel(new BorderLayout(5, 0));
+        ruleContent.add(ruleButtonBar, BorderLayout.WEST);
+        ruleContent.add(ruleScroll, BorderLayout.CENTER);
+
+        JPanel ruleHeaderPanel = new JPanel();
+        ruleHeaderPanel.setLayout(new BoxLayout(ruleHeaderPanel, BoxLayout.Y_AXIS));
+        JLabel rulesHeader = sectionHeader("Redaction Rules");
+        JLabel rulesHint = new JLabel("Value replacement rules:");
+        rulesHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rulesHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        ruleHeaderPanel.add(rulesHeader);
+        ruleHeaderPanel.add(rulesHint);
 
         JPanel rulePanel = new JPanel(new BorderLayout(0, 2));
-        rulePanel.add(new JLabel("Redaction rules (value replacement):"), BorderLayout.NORTH);
-        rulePanel.add(ruleScroll, BorderLayout.CENTER);
-        rulePanel.add(ruleButtonBar, BorderLayout.SOUTH);
+        rulePanel.add(ruleHeaderPanel, BorderLayout.NORTH);
+        rulePanel.add(ruleContent, BorderLayout.CENTER);
 
         templateArea = new JTextArea(5, 40);
         templateArea.setFont(textAreaFont);
@@ -109,8 +124,11 @@ class PresetFormPanel extends JPanel {
         regexColumns.setAlignmentX(Component.LEFT_ALIGNMENT);
         replacementRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         rulePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        ruleHeaderPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         placeholderHint.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        JLabel templateHeader = sectionHeader("Template");
+        templateHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
         JPanel templatePanel = labeledScroll("Template:", templateArea);
         templatePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -124,6 +142,8 @@ class PresetFormPanel extends JPanel {
         add(Box.createVerticalStrut(5));
         add(rulePanel);
         add(Box.createVerticalStrut(10));
+        add(templateHeader);
+        add(Box.createVerticalStrut(2));
         add(placeholderHint);
         add(templatePanel);
     }
@@ -132,9 +152,9 @@ class PresetFormPanel extends JPanel {
         currentPresetId = formData.getPresetId();
         nameField.setText(formData.getName());
         scopeCombo.setSelectedItem(formData.getScope().toEditableScope());
-        headerRegexesArea.setText(String.join("\n", formData.getHeaderRegexes()));
-        cookieRegexesArea.setText(String.join("\n", formData.getCookieRegexes()));
-        paramRegexesArea.setText(String.join("\n", formData.getParamRegexes()));
+        headerRegexesArea.setText(joinLines(formData.getHeaderRegexes()));
+        cookieRegexesArea.setText(joinLines(formData.getCookieRegexes()));
+        paramRegexesArea.setText(joinLines(formData.getParamRegexes()));
         replacementStringField.setText(formData.getReplacementString());
         ruleTableModel.setRules(formData.getRedactionRules());
         templateArea.setText(formData.getTemplate());
@@ -207,10 +227,28 @@ class PresetFormPanel extends JPanel {
         return result;
     }
 
+    private static String joinLines(List<String> lines) {
+        List<String> sanitized = new ArrayList<>();
+        for (String line : lines) {
+            if (line != null) {
+                sanitized.add(line);
+            }
+        }
+        return String.join("\n", sanitized);
+    }
+
     private static JPanel labeledScroll(String label, JTextArea area) {
         JPanel panel = new JPanel(new BorderLayout(0, 2));
         panel.add(new JLabel(label), BorderLayout.NORTH);
         panel.add(new JScrollPane(area), BorderLayout.CENTER);
         return panel;
+    }
+
+    private static JLabel sectionHeader(String title) {
+        JLabel label = new JLabel(title);
+        Font baseFont = UIManager.getFont("Label.font");
+        Font sourceFont = baseFont != null ? baseFont : label.getFont();
+        label.setFont(sourceFont.deriveFont(Font.BOLD, Math.max(20f, sourceFont.getSize2D() + 6f)));
+        return label;
     }
 }

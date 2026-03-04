@@ -25,7 +25,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         clearEditor();
         view.setEditorEnabled(false);
-        view.setPresetActions(false, false, false, false);
+        view.setPresetActions(false, false, false, false, false);
         reloadTable();
     }
 
@@ -33,7 +33,6 @@ final class SettingsPresenter implements SettingsView.Listener {
     public void onAdd() {
         addingNew = true;
         editingRow = -1;
-        view.clearSelection();
         view.setEditorFormData(PresetFormMapper.forNewPreset());
         view.setEditorEnabled(true);
         view.focusEditorNameField();
@@ -64,22 +63,56 @@ final class SettingsPresenter implements SettingsView.Listener {
 
     @Override
     public void onDuplicate() {
-        int selectedRow = view.selectedRow();
+        int selectedRow = selectedRowForRowAction();
         if (selectedRow < 0) {
+            view.showValidationWarning("Select a preset to duplicate.");
             return;
         }
 
         PresetRow row = view.rowAt(selectedRow);
+        PresetScope duplicateScope = row.getScope() == PresetScope.PROJECT
+                ? PresetScope.USER
+                : row.getScope().toEditableScope();
         addingNew = true;
         editingRow = -1;
-        view.clearSelection();
-        view.setEditorFormData(
-                PresetFormMapper.fromPreset(row.getPreset(), PresetScope.USER)
-                        .withName(row.getPreset().getName() + " (copy)")
-                        .withoutPresetId()
-        );
-        view.setEditorEnabled(true);
-        view.focusEditorNameField();
+        try {
+            view.setEditorFormData(
+                    PresetFormMapper.fromPreset(row.getPreset(), duplicateScope)
+                            .withName(row.getPreset().getName() + " (copy)")
+                            .withoutPresetId()
+            );
+            view.setEditorEnabled(true);
+            view.focusEditorNameField();
+        } catch (RuntimeException exception) {
+            addingNew = false;
+            view.showValidationWarning("Unable to duplicate this preset because some saved values are invalid.");
+        }
+    }
+
+    @Override
+    public void onEdit() {
+        int selectedRow = selectedRowForRowAction();
+        if (selectedRow < 0) {
+            view.showValidationWarning("Select a preset to edit.");
+            return;
+        }
+
+        PresetRow row = view.rowAt(selectedRow);
+        if (row.getScope().isBuiltIn()) {
+            view.showValidationWarning("The built-in preset cannot be edited.");
+            return;
+        }
+
+        addingNew = false;
+        editingRow = selectedRow;
+        try {
+            view.setEditorFormData(PresetFormMapper.fromPreset(row.getPreset(), row.getScope()));
+            view.setEditorEnabled(true);
+            view.focusEditorNameField();
+        } catch (RuntimeException exception) {
+            editingRow = -1;
+            view.showValidationWarning("Unable to edit this preset because some saved values are invalid.");
+        }
     }
 
     @Override
@@ -116,24 +149,25 @@ final class SettingsPresenter implements SettingsView.Listener {
     @Override
     public void onSave() {
         PresetFormData formData = view.getEditorFormData();
-        String validationError = PresetFormMapper.firstValidationError(formData);
+        PresetFormData effectiveFormData = addingNew ? formData.withoutPresetId() : formData;
+        String validationError = PresetFormMapper.firstValidationError(effectiveFormData);
         if (validationError != null) {
             view.showValidationWarning(validationError);
             return;
         }
 
-        if (presetService.isPresetNameTaken(formData.getName(), formData.getPresetId())) {
-            view.showValidationWarning("A preset named \"" + formData.getName().trim() + "\" already exists.");
+        if (presetService.isPresetNameTaken(effectiveFormData.getName(), effectiveFormData.getPresetId())) {
+            view.showValidationWarning("A preset named \"" + effectiveFormData.getName().trim() + "\" already exists.");
             return;
         }
 
-        PresetScope scope = formData.getScope();
+        PresetScope scope = effectiveFormData.getScope();
         boolean enabled = true;
         if (editingRow >= 0) {
             enabled = view.rowAt(editingRow).getPreset().isEnabled();
         }
 
-        Preset preset = PresetFormMapper.toPreset(formData, enabled);
+        Preset preset = PresetFormMapper.toPreset(effectiveFormData, enabled);
         String savedPresetId = preset.getId();
 
         if (editingRow >= 0) {
@@ -146,6 +180,7 @@ final class SettingsPresenter implements SettingsView.Listener {
         presetService.savePreset(preset, scope);
         addingNew = false;
         editingRow = -1;
+        view.setEditorEnabled(false);
         reloadTable();
         reselectPreset(savedPresetId);
     }
@@ -154,15 +189,8 @@ final class SettingsPresenter implements SettingsView.Listener {
     public void onCancel() {
         addingNew = false;
         editingRow = -1;
-
-        int selectedRow = view.selectedRow();
-        if (selectedRow >= 0) {
-            showPresetInEditor(view.rowAt(selectedRow));
-            return;
-        }
-
-        clearEditor();
         view.setEditorEnabled(false);
+        clearEditor();
     }
 
     @Override
@@ -189,7 +217,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         int selectedRow = view.selectedRow();
         if (selectedRow < 0) {
-            view.setPresetActions(false, false, false, false);
+            view.setPresetActions(false, false, false, false, false);
             clearEditor();
             view.setEditorEnabled(false);
             return;
@@ -197,16 +225,15 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         PresetRow row = view.rowAt(selectedRow);
         boolean builtIn = row.getScope().isBuiltIn();
+        editingRow = builtIn ? -1 : selectedRow;
 
         view.setPresetActions(
                 !builtIn,
                 true,
+                !builtIn,
                 selectedRow > 0,
                 selectedRow < view.rowCount() - 1
         );
-
-        editingRow = builtIn ? -1 : selectedRow;
-        showPresetInEditor(row);
     }
 
     @Override
@@ -248,12 +275,6 @@ final class SettingsPresenter implements SettingsView.Listener {
 
     private void clearEditor() {
         view.setEditorFormData(PresetFormMapper.empty());
-    }
-
-    private void showPresetInEditor(PresetRow row) {
-        boolean builtIn = row.getScope().isBuiltIn();
-        view.setEditorFormData(PresetFormMapper.fromPreset(row.getPreset(), row.getScope()));
-        view.setEditorEnabled(!builtIn);
     }
 
     private void reselectPreset(String presetId) {

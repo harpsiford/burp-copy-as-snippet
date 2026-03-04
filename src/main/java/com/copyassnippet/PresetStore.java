@@ -19,6 +19,7 @@ public class PresetStore {
 
     private static final String PROJECT_PRESETS_KEY = "project.presets";
     private static final String PROJECT_PRESET_IDS_LIST_KEY = "ids";
+    private static final String PROJECT_PRESET_IDS_RAW_KEY = "idsRaw";
     private static final String PROJECT_PRESET_NAMES_LIST_KEY_LEGACY = "names";
 
     private static final String PRESET_ORDER_IDS_KEY = "preset.order.ids";
@@ -106,16 +107,20 @@ public class PresetStore {
             return result;
         }
 
+        List<String> presetIdsRaw = parseMultiline(container.getString(PROJECT_PRESET_IDS_RAW_KEY));
+        if (!presetIdsRaw.isEmpty()) {
+            loadProjectPresetsByIds(container, presetIdsRaw, result);
+            if (!result.isEmpty()) {
+                return result;
+            }
+        }
+
         PersistedList<String> presetIds = container.getStringList(PROJECT_PRESET_IDS_LIST_KEY);
         if (presetIds != null && !presetIds.isEmpty()) {
-            for (String presetId : presetIds) {
-                PersistedObject child = container.getChildObject(presetId);
-                Preset preset = PresetPersistedObjectSerializer.load(child, presetId);
-                if (preset != null) {
-                    result.add(preset);
-                }
+            loadProjectPresetsByIds(container, presetIds, result);
+            if (!result.isEmpty()) {
+                return result;
             }
-            return result;
         }
 
         PersistedList<String> legacyNames = container.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY);
@@ -137,6 +142,7 @@ public class PresetStore {
     public void setProjectPresets(List<Preset> presets) {
         PersistedObject existingContainer = extensionData.getChildObject(PROJECT_PRESETS_KEY);
         if (existingContainer != null) {
+            deleteProjectChildren(parseMultiline(existingContainer.getString(PROJECT_PRESET_IDS_RAW_KEY)), existingContainer);
             deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_IDS_LIST_KEY), existingContainer);
             deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY), existingContainer);
         }
@@ -151,8 +157,11 @@ public class PresetStore {
         }
 
         PersistedList<String> idsList = PersistedList.persistedStringList();
-        idsList.addAll(presetIds);
+        for (String presetId : presetIds) {
+            idsList.add(presetId);
+        }
         container.setStringList(PROJECT_PRESET_IDS_LIST_KEY, idsList);
+        container.setString(PROJECT_PRESET_IDS_RAW_KEY, String.join("\n", presetIds));
 
         extensionData.setChildObject(PROJECT_PRESETS_KEY, container);
     }
@@ -294,13 +303,32 @@ public class PresetStore {
         }
     }
 
+    private static void deleteProjectChildren(List<String> keys, PersistedObject container) {
+        if (keys == null) {
+            return;
+        }
+        for (String key : keys) {
+            container.deleteChildObject(key);
+        }
+    }
+
+    private static void loadProjectPresetsByIds(PersistedObject container, Iterable<String> presetIds, List<Preset> target) {
+        for (String presetId : presetIds) {
+            PersistedObject child = container.getChildObject(presetId);
+            Preset preset = PresetPersistedObjectSerializer.load(child, presetId);
+            if (preset != null) {
+                target.add(preset);
+            }
+        }
+    }
+
     private static List<String> parseMultiline(String raw) {
         List<String> result = new ArrayList<>();
         if (raw == null || raw.isEmpty()) {
             return result;
         }
 
-        for (String value : raw.split("\n")) {
+        for (String value : raw.split("\\R")) {
             if (!value.isEmpty()) {
                 result.add(value);
             }
