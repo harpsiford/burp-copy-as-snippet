@@ -2,6 +2,11 @@ package com.copyassnippet;
 
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;
+import com.copyassnippet.hotkey.HotkeyManager;
+import com.copyassnippet.preset.storage.PresetStore;
+import com.copyassnippet.redaction.CachingRedactionEngine;
+import com.copyassnippet.ui.contextmenu.MyContextMenuItemsProvider;
+import com.copyassnippet.ui.settings.MySettingsPanel;
 
 public class CopyAsSnippetExtension implements BurpExtension
 {
