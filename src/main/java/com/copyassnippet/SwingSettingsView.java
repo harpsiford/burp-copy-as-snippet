@@ -6,6 +6,8 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
@@ -40,6 +42,23 @@ final class SwingSettingsView implements SettingsView {
         presetTable = new JTable(tableModel);
         presetTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         presetTable.getSelectionModel().addListSelectionListener(this::onSelectionChanged);
+        presetTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event) || event.getClickCount() != 2) {
+                    return;
+                }
+
+                int row = presetTable.rowAtPoint(event.getPoint());
+                int column = presetTable.columnAtPoint(event.getPoint());
+                if (row < 0 || column == 0) {
+                    return;
+                }
+
+                presetTable.setRowSelectionInterval(row, row);
+                notifyEdit();
+            }
+        });
         presetTable.getColumnModel().getColumn(0).setMaxWidth(50);
         presetTable.getColumnModel().getColumn(0).setMinWidth(50);
         presetTable.getColumnModel().getColumn(0).setCellRenderer(new NativeSizedBooleanRenderer());
@@ -51,7 +70,7 @@ final class SwingSettingsView implements SettingsView {
         tableScroll.setPreferredSize(new Dimension(400, 150));
 
         JButton addButton = new JButton("Add");
-        deleteButton = new JButton("Delete");
+        deleteButton = new JButton("Remove");
         duplicateButton = new JButton("Duplicate");
         editButton = new JButton("Edit");
         moveUpButton = new JButton("Up");
