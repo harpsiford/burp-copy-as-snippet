@@ -23,15 +23,20 @@ public class RequestRedactor {
     private final List<Pattern> paramPatterns;
     private final String template;
 
+    private static String anchorRegex(String r) {
+        String s = r.startsWith("^") ? r : "^" + r;
+        return s.endsWith("$") ? s : s + "$";
+    }
+
     public RequestRedactor(Preset preset) {
         this.headerPatterns = preset.getHeaderRegexes().stream()
-                .map(r -> Pattern.compile(r, Pattern.CASE_INSENSITIVE))
+                .map(r -> Pattern.compile(anchorRegex(r), Pattern.CASE_INSENSITIVE))
                 .collect(Collectors.toList());
         this.cookiePatterns = preset.getCookieRegexes().stream()
-                .map(Pattern::compile)
+                .map(r -> Pattern.compile(anchorRegex(r)))
                 .collect(Collectors.toList());
         this.paramPatterns = preset.getParamRegexes().stream()
-                .map(Pattern::compile)
+                .map(r -> Pattern.compile(anchorRegex(r)))
                 .collect(Collectors.toList());
         this.template = preset.getTemplate();
     }

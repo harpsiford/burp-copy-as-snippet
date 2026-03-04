@@ -34,51 +34,51 @@ public class Preset {
 
     public static Preset createDefault() {
         List<String> defaultHeaders = List.of(
-                "^Accept$",
-                "^Accept-Language$",
-                "^Accept-Encoding$",
-                "^X-Pwnfox-Color$",
-                "^Priority$",
-                "^Te$",
-                "^User-Agent$",
-                "^X-Requested-With$",
-                "^Vary$",
-                "^Access-Control-Allow-Headers$",
-                "^Access-Control-Allow-Methods$",
-                "^X-Xss-Protection$",
-                "^X-Content-Type-Options$",
-                "^Access-Control-Expose-Headers$",
-                "^Alt-Svc$",
-                "^Via$",
-                "^Server$",
-                "^Sec-Ch-Ua$",
-                "^Sec-Ch-Ua-Mobile$",
-                "^Sec-Ch-Ua-Platform$",
-                "^Upgrade-Insecure-Requests$",
-                "^Sec-Fetch-Site$",
-                "^Sec-Fetch-Mode$",
-                "^Sec-Fetch-Dest$",
-                "^Origin$",
-                "^Referer$",
-                "^Cf-Ray$",
-                "^Trace-Id$",
-                "^Baggage$",
-                "^Sentry-Trace$"
+                "Accept",
+                "Accept-Language",
+                "Accept-Encoding",
+                "X-Pwnfox-Color",
+                "Priority",
+                "Te",
+                "User-Agent",
+                "X-Requested-With",
+                "Vary",
+                "Access-Control-Allow-Headers",
+                "Access-Control-Allow-Methods",
+                "X-Xss-Protection",
+                "X-Content-Type-Options",
+                "Access-Control-Expose-Headers",
+                "Alt-Svc",
+                "Via",
+                "Server",
+                "Sec-Ch-Ua",
+                "Sec-Ch-Ua-Mobile",
+                "Sec-Ch-Ua-Platform",
+                "Upgrade-Insecure-Requests",
+                "Sec-Fetch-Site",
+                "Sec-Fetch-Mode",
+                "Sec-Fetch-Dest",
+                "Origin",
+                "Referer",
+                "Cf-Ray",
+                "Trace-Id",
+                "Baggage",
+                "Sentry-Trace"
         );
 
         List<String> defaultCookies = List.of(
-                "^_[\\w_]*$",
-                "^optimizely\\w+$",
-                "^AMP_[\\w_]+$",
-                "^ajs_\\w+_id$",
-                "^GOOG\\w+$"
+                "_[\\w_]*",
+                "optimizely\\w+",
+                "AMP_[\\w_]+",
+                "ajs_\\w+_id",
+                "GOOG\\w+"
         );
 
         List<String> defaultParams = List.of(
-                "^utm_\\w+$",
-                "^fbclid$",
-                "^gclid$",
-                "^_[\\w_]*$"
+                "utm_\\w+",
+                "fbclid",
+                "gclid",
+                "_[\\w_]*"
         );
 
         return new Preset("Default", defaultHeaders, defaultCookies, defaultParams, DEFAULT_TEMPLATE);
