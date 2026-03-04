@@ -10,12 +10,8 @@ final class PresetApplicationService {
         this.presetStore = presetStore;
     }
 
-    List<PresetRow> listResolvedRows() {
-        List<PresetRow> rows = new ArrayList<>();
-        for (PresetResolver.ResolvedPreset resolvedPreset : presetStore.getResolvedPresetEntries()) {
-            rows.add(new PresetRow(resolvedPreset.getPreset(), resolvedPreset.getScope()));
-        }
-        return rows;
+    List<PresetResolver.ResolvedPreset> listResolvedPresets() {
+        return presetStore.getResolvedPresetEntries();
     }
 
     void savePreset(Preset preset, PresetScope scope) {
@@ -72,7 +68,7 @@ final class PresetApplicationService {
         return presetStore.isPresetNameTaken(presetName, excludedPresetId);
     }
 
-    void persistEnabledToggle(PresetRow row, boolean enabled) {
+    void persistEnabledToggle(PresetResolver.ResolvedPreset row, boolean enabled) {
         Preset preset = row.getPreset();
         preset.setEnabled(enabled);
 

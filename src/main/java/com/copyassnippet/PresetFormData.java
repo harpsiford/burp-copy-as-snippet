@@ -98,4 +98,65 @@ final class PresetFormData {
                 template
         );
     }
+
+    static PresetFormData forNewPreset() {
+        return fromPreset(DefaultPresetFactory.createBuiltInPreset(), PresetScope.USER)
+                .withName("")
+                .withoutPresetId();
+    }
+
+    static PresetFormData empty() {
+        return new PresetFormData(
+                null,
+                "",
+                PresetScope.USER,
+                List.of(),
+                List.of(),
+                List.of(),
+                DefaultPresetFactory.DEFAULT_REPLACEMENT,
+                List.of(),
+                ""
+        );
+    }
+
+    static PresetFormData fromPreset(Preset preset, PresetScope scope) {
+        return new PresetFormData(
+                preset.getId(),
+                preset.getName(),
+                scope,
+                preset.getHeaderRegexes(),
+                preset.getCookieRegexes(),
+                preset.getParamRegexes(),
+                preset.getReplacementString(),
+                preset.getRedactionRules(),
+                preset.getTemplate()
+        );
+    }
+
+    String firstValidationError() {
+        if (name.trim().isEmpty()) {
+            return "Name cannot be empty.";
+        }
+
+        return RegexValidation.firstValidationError(
+                getHeaderRegexes(),
+                getCookieRegexes(),
+                getParamRegexes(),
+                getRedactionRules()
+        );
+    }
+
+    Preset toPreset(boolean enabled) {
+        return new Preset(
+                presetId,
+                name.trim(),
+                getHeaderRegexes(),
+                getCookieRegexes(),
+                getParamRegexes(),
+                getRedactionRules(),
+                replacementString,
+                template,
+                enabled
+        );
+    }
 }

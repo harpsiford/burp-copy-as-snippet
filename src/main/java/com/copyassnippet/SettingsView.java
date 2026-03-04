@@ -39,11 +39,11 @@ interface SettingsView {
 
     void setListener(Listener listener);
 
-    void setRows(List<PresetRow> rows);
+    void setRows(List<PresetResolver.ResolvedPreset> rows);
 
     int rowCount();
 
-    PresetRow rowAt(int index);
+    PresetResolver.ResolvedPreset rowAt(int index);
 
     int selectedRow();
 

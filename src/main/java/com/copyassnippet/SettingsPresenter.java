@@ -33,7 +33,7 @@ final class SettingsPresenter implements SettingsView.Listener {
     public void onAdd() {
         addingNew = true;
         editingRow = -1;
-        view.setEditorFormData(PresetFormMapper.forNewPreset());
+        view.setEditorFormData(PresetFormData.forNewPreset());
         view.setEditorEnabled(true);
         view.focusEditorNameField();
     }
@@ -46,7 +46,7 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetRow row = view.rowAt(selectedRow);
+        PresetResolver.ResolvedPreset row = view.rowAt(selectedRow);
         if (!view.confirmDelete(row.getPreset().getName())) {
             return;
         }
@@ -64,7 +64,7 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetRow row = view.rowAt(selectedRow);
+        PresetResolver.ResolvedPreset row = view.rowAt(selectedRow);
         PresetScope duplicateScope = row.getScope() == PresetScope.PROJECT
                 ? PresetScope.USER
                 : row.getScope().toEditableScope();
@@ -72,7 +72,7 @@ final class SettingsPresenter implements SettingsView.Listener {
         editingRow = -1;
         try {
             view.setEditorFormData(
-                    PresetFormMapper.fromPreset(row.getPreset(), duplicateScope)
+                    PresetFormData.fromPreset(row.getPreset(), duplicateScope)
                             .withName(row.getPreset().getName() + " (copy)")
                             .withoutPresetId()
             );
@@ -92,11 +92,11 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetRow row = view.rowAt(selectedRow);
+        PresetResolver.ResolvedPreset row = view.rowAt(selectedRow);
         addingNew = false;
         editingRow = selectedRow;
         try {
-            view.setEditorFormData(PresetFormMapper.fromPreset(row.getPreset(), row.getScope()));
+            view.setEditorFormData(PresetFormData.fromPreset(row.getPreset(), row.getScope()));
             view.setEditorEnabled(true);
             view.focusEditorNameField();
         } catch (RuntimeException exception) {
@@ -141,7 +141,7 @@ final class SettingsPresenter implements SettingsView.Listener {
     public void onSave() {
         PresetFormData formData = view.getEditorFormData();
         PresetFormData effectiveFormData = addingNew ? formData.withoutPresetId() : formData;
-        String validationError = PresetFormMapper.firstValidationError(effectiveFormData);
+        String validationError = effectiveFormData.firstValidationError();
         if (validationError != null) {
             view.showValidationWarning(validationError);
             return;
@@ -158,11 +158,11 @@ final class SettingsPresenter implements SettingsView.Listener {
             enabled = view.rowAt(editingRow).getPreset().isEnabled();
         }
 
-        Preset preset = PresetFormMapper.toPreset(effectiveFormData, enabled);
+        Preset preset = effectiveFormData.toPreset(enabled);
         String savedPresetId = preset.getId();
 
         if (editingRow >= 0) {
-            PresetRow oldRow = view.rowAt(editingRow);
+            PresetResolver.ResolvedPreset oldRow = view.rowAt(editingRow);
             if (oldRow.getScope() != scope) {
                 presetService.removePreset(oldRow.getPreset().getId(), oldRow.getScope());
             }
@@ -231,7 +231,7 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetRow row = view.rowAt(rowIndex);
+        PresetResolver.ResolvedPreset row = view.rowAt(rowIndex);
         presetService.persistEnabledToggle(row, enabled);
         if (row.getScope().isBuiltIn()) {
             reloadTable();
@@ -259,11 +259,11 @@ final class SettingsPresenter implements SettingsView.Listener {
     }
 
     private void reloadTable() {
-        view.setRows(presetService.listResolvedRows());
+        view.setRows(presetService.listResolvedPresets());
     }
 
     private void clearEditor() {
-        view.setEditorFormData(PresetFormMapper.empty());
+        view.setEditorFormData(PresetFormData.empty());
     }
 
     private void reselectPreset(String presetId) {

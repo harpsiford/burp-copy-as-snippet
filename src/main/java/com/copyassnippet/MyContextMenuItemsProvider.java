@@ -18,9 +18,9 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 {
     private static final Logger LOGGER = Logger.getLogger(MyContextMenuItemsProvider.class.getName());
     private final PresetStore presetStore;
-    private final RedactionEngine redactionEngine;
+    private final CachingRedactionEngine redactionEngine;
 
-    MyContextMenuItemsProvider(PresetStore presetStore, RedactionEngine redactionEngine)
+    MyContextMenuItemsProvider(PresetStore presetStore, CachingRedactionEngine redactionEngine)
     {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;

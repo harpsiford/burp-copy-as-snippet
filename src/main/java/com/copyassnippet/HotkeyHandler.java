@@ -14,9 +14,9 @@ public class HotkeyHandler implements HotKeyHandler {
     private static final Logger LOGGER = Logger.getLogger(HotkeyHandler.class.getName());
 
     private final PresetStore presetStore;
-    private final RedactionEngine redactionEngine;
+    private final CachingRedactionEngine redactionEngine;
 
-    HotkeyHandler(PresetStore presetStore, RedactionEngine redactionEngine) {
+    HotkeyHandler(PresetStore presetStore, CachingRedactionEngine redactionEngine) {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;
     }

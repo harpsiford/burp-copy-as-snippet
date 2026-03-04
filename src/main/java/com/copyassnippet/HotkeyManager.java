@@ -8,10 +8,10 @@ public class HotkeyManager {
 
     private final MontoyaApi api;
     private final PresetStore presetStore;
-    private final RedactionEngine redactionEngine;
+    private final CachingRedactionEngine redactionEngine;
     private Registration currentRegistration;
 
-    HotkeyManager(MontoyaApi api, PresetStore presetStore, RedactionEngine redactionEngine) {
+    HotkeyManager(MontoyaApi api, PresetStore presetStore, CachingRedactionEngine redactionEngine) {
         this.api = api;
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;

@@ -117,7 +117,7 @@ final class SwingSettingsView implements SettingsView {
         editorPanel.add(editorButtons, BorderLayout.SOUTH);
         editorPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor)");
+        hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor, uses the first active preset)");
         Icon hotkeyIcon = scaledNativeCheckboxIcon(
                 hotkeyEnabledCheckbox.getFontMetrics(hotkeyEnabledCheckbox.getFont()).getHeight() - 2);
         if (hotkeyIcon != null) {
@@ -189,7 +189,7 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
-    public void setRows(List<PresetRow> rows) {
+    public void setRows(List<PresetResolver.ResolvedPreset> rows) {
         tableModel.setRows(rows);
     }
 
@@ -199,7 +199,7 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
-    public PresetRow rowAt(int index) {
+    public PresetResolver.ResolvedPreset rowAt(int index) {
         return tableModel.getRow(index);
     }
 
@@ -465,16 +465,16 @@ final class SwingSettingsView implements SettingsView {
     }
 
     private static class PresetTableModel extends AbstractTableModel {
-        private final List<PresetRow> rows = new ArrayList<>();
+        private final List<PresetResolver.ResolvedPreset> rows = new ArrayList<>();
         private EnabledToggleListener enabledToggleListener;
 
-        void setRows(List<PresetRow> newRows) {
+        void setRows(List<PresetResolver.ResolvedPreset> newRows) {
             rows.clear();
             rows.addAll(newRows);
             fireTableDataChanged();
         }
 
-        PresetRow getRow(int index) {
+        PresetResolver.ResolvedPreset getRow(int index) {
             return rows.get(index);
         }
 
@@ -518,7 +518,7 @@ final class SwingSettingsView implements SettingsView {
 
         @Override
         public Object getValueAt(int rowIndex, int columnIndex) {
-            PresetRow row = rows.get(rowIndex);
+            PresetResolver.ResolvedPreset row = rows.get(rowIndex);
             switch (columnIndex) {
                 case 0:
                     return row.getPreset().isEnabled();
@@ -536,7 +536,7 @@ final class SwingSettingsView implements SettingsView {
             if (columnIndex != 0) {
                 return;
             }
-            PresetRow row = rows.get(rowIndex);
+            PresetResolver.ResolvedPreset row = rows.get(rowIndex);
             boolean enabled = Boolean.TRUE.equals(value);
             row.getPreset().setEnabled(enabled);
             fireTableCellUpdated(rowIndex, columnIndex);

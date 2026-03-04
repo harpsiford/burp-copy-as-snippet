@@ -7,7 +7,7 @@ import burp.api.montoya.http.message.responses.HttpResponse;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class CachingRedactionEngine implements RedactionEngine {
+public final class CachingRedactionEngine {
     private final Map<String, CachedPlan> planByPresetId = new ConcurrentHashMap<>();
     private final RedactionPlanCompiler planCompiler;
     private final RequestRedactionProcessor requestProcessor;
@@ -34,17 +34,14 @@ public final class CachingRedactionEngine implements RedactionEngine {
         this.regexBodyProcessor = regexBodyProcessor;
     }
 
-    @Override
     public HttpRequest redactRequest(Preset preset, HttpRequest request) {
         return requestProcessor.redact(request, planFor(preset));
     }
 
-    @Override
     public HttpResponse redactResponse(Preset preset, HttpResponse response) {
         return responseProcessor.redact(response, planFor(preset));
     }
 
-    @Override
     public String format(Preset preset, HttpRequestResponse requestResponse) {
         RedactionPlan plan = planFor(preset);
         String redactedRequest = regexBodyProcessor.redact(
