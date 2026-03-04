@@ -1,6 +1,5 @@
 package com.copyassnippet;
 
-import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.ui.settings.SettingsPanel;
 
 import javax.swing.*;
@@ -48,7 +47,7 @@ public class MySettingsPanel implements SettingsPanel {
     private int editingRow = -1;
     private boolean addingNew = false;
 
-    public MySettingsPanel(MontoyaApi api, PresetStore presetStore, HotkeyManager hotkeyManager) {
+    public MySettingsPanel(PresetStore presetStore, HotkeyManager hotkeyManager) {
         this.presetStore = presetStore;
         this.hotkeyManager = hotkeyManager;
 

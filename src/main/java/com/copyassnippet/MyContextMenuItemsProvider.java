@@ -1,6 +1,5 @@
 package com.copyassnippet;
 
-import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.contextmenu.ContextMenuEvent;
 import burp.api.montoya.ui.contextmenu.ContextMenuItemsProvider;
@@ -15,12 +14,10 @@ import java.util.List;
 
 public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
 {
-    private final MontoyaApi api;
     private final PresetStore presetStore;
 
-    public MyContextMenuItemsProvider(MontoyaApi api, PresetStore presetStore)
+    public MyContextMenuItemsProvider(PresetStore presetStore)
     {
-        this.api = api;
         this.presetStore = presetStore;
     }
 
