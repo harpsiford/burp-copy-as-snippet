@@ -1,4 +1,4 @@
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.persistence.PersistedList;
 import burp.api.montoya.persistence.PersistedObject;

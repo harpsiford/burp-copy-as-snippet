@@ -1,4 +1,4 @@
-package example.contextmenu;
+package com.copyassnippet;
 
 import javax.swing.*;
 import java.awt.*;

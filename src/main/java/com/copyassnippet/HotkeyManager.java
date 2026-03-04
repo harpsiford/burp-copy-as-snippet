@@ -1,4 +1,4 @@
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.Registration;

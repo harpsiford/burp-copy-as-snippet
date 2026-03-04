@@ -6,7 +6,7 @@
  * license terms for those products.
  */
 
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.BurpExtension;
 import burp.api.montoya.MontoyaApi;

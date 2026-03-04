@@ -1,4 +1,4 @@
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.http.message.HttpHeader;
 import burp.api.montoya.http.message.HttpRequestResponse;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 /**
@@ -39,16 +40,35 @@ public class RequestRedactor {
         return s.endsWith("$") ? s : s + "$";
     }
 
+    private static Pattern tryCompile(String regex, int flags) {
+        try {
+            return Pattern.compile(regex, flags);
+        } catch (PatternSyntaxException e) {
+            return null;
+        }
+    }
+
     public RequestRedactor(Preset preset) {
-        this.headerPatterns = preset.getHeaderRegexes().stream()
-                .map(r -> Pattern.compile(anchorRegex(r), Pattern.CASE_INSENSITIVE))
-                .collect(Collectors.toList());
-        this.cookiePatterns = preset.getCookieRegexes().stream()
-                .map(r -> Pattern.compile(anchorRegex(r)))
-                .collect(Collectors.toList());
-        this.paramPatterns = preset.getParamRegexes().stream()
-                .map(r -> Pattern.compile(anchorRegex(r)))
-                .collect(Collectors.toList());
+        List<Pattern> hPat = new ArrayList<>();
+        for (String r : preset.getHeaderRegexes()) {
+            Pattern p = tryCompile(anchorRegex(r), Pattern.CASE_INSENSITIVE);
+            if (p != null) hPat.add(p);
+        }
+        this.headerPatterns = hPat;
+
+        List<Pattern> cPat = new ArrayList<>();
+        for (String r : preset.getCookieRegexes()) {
+            Pattern p = tryCompile(anchorRegex(r), 0);
+            if (p != null) cPat.add(p);
+        }
+        this.cookiePatterns = cPat;
+
+        List<Pattern> pPat = new ArrayList<>();
+        for (String r : preset.getParamRegexes()) {
+            Pattern p = tryCompile(anchorRegex(r), 0);
+            if (p != null) pPat.add(p);
+        }
+        this.paramPatterns = pPat;
 
         this.replacementString = preset.getReplacementString();
 
@@ -58,10 +78,10 @@ public class RequestRedactor {
         List<Pattern> rRegex = new ArrayList<>();
         for (RedactionRule rule : preset.getRedactionRules()) {
             switch (rule.getType()) {
-                case COOKIE: rCookie.add(Pattern.compile(anchorRegex(rule.getPattern()))); break;
-                case HEADER: rHeader.add(Pattern.compile(anchorRegex(rule.getPattern()), Pattern.CASE_INSENSITIVE)); break;
-                case PARAM:  rParam.add(Pattern.compile(anchorRegex(rule.getPattern()))); break;
-                case REGEX:  rRegex.add(Pattern.compile(rule.getPattern(), Pattern.DOTALL)); break;
+                case COOKIE: { Pattern p = tryCompile(anchorRegex(rule.getPattern()), 0); if (p != null) rCookie.add(p); break; }
+                case HEADER: { Pattern p = tryCompile(anchorRegex(rule.getPattern()), Pattern.CASE_INSENSITIVE); if (p != null) rHeader.add(p); break; }
+                case PARAM:  { Pattern p = tryCompile(anchorRegex(rule.getPattern()), 0); if (p != null) rParam.add(p); break; }
+                case REGEX:  { Pattern p = tryCompile(rule.getPattern(), Pattern.DOTALL); if (p != null) rRegex.add(p); break; }
             }
         }
         this.redactCookiePatterns = rCookie;
@@ -176,21 +196,28 @@ public class RequestRedactor {
         }
 
         // --- Set-Cookie value redaction ---
+        // Remove all Set-Cookie headers first, then re-add each one individually
+        // (withUpdatedHeader only updates the first occurrence, breaking multi-value headers).
         if (!redactCookiePatterns.isEmpty()) {
             List<HttpHeader> setCookieHeaders = response.headers().stream()
                     .filter(h -> h.name().equalsIgnoreCase("Set-Cookie"))
                     .collect(Collectors.toList());
-            for (HttpHeader h : setCookieHeaders) {
-                String cookieLine = h.value();
-                // Set-Cookie: name=value; attributes...
-                int eq = cookieLine.indexOf('=');
-                int semi = cookieLine.indexOf(';');
-                if (eq > 0) {
-                    String cookieName = cookieLine.substring(0, eq).trim();
-                    if (redactCookiePatterns.stream().anyMatch(p -> p.matcher(cookieName).matches())) {
-                        String rest = semi >= 0 ? cookieLine.substring(semi) : "";
-                        response = response.withUpdatedHeader("Set-Cookie", cookieName + "=" + replacementString + rest);
+            if (!setCookieHeaders.isEmpty()) {
+                response = response.withRemovedHeaders(setCookieHeaders);
+                for (HttpHeader h : setCookieHeaders) {
+                    String cookieLine = h.value();
+                    // Set-Cookie: name=value; attributes...
+                    int eq = cookieLine.indexOf('=');
+                    int semi = cookieLine.indexOf(';');
+                    String newValue = cookieLine;
+                    if (eq > 0) {
+                        String cookieName = cookieLine.substring(0, eq).trim();
+                        if (redactCookiePatterns.stream().anyMatch(p -> p.matcher(cookieName).matches())) {
+                            String rest = semi >= 0 ? cookieLine.substring(semi) : "";
+                            newValue = cookieName + "=" + replacementString + rest;
+                        }
                     }
+                    response = response.withAddedHeader(h.name(), newValue);
                 }
             }
         }

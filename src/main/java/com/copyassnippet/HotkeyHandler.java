@@ -1,4 +1,4 @@
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.http.message.HttpRequestResponse;
 import burp.api.montoya.ui.hotkey.HotKeyEvent;
@@ -28,7 +28,11 @@ public class HotkeyHandler implements HotKeyHandler {
         RequestRedactor redactor = new RequestRedactor(preset);
         String result = redactor.format(requestResponse);
 
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        } catch (Exception e) {
+            // Clipboard access denied or unavailable — silently ignore
+        }
     }
 
     private Preset getFirstEnabledPreset() {

@@ -6,7 +6,7 @@
  * license terms for those products.
  */
 
-package example.contextmenu;
+package com.copyassnippet;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.http.message.HttpRequestResponse;
@@ -52,7 +52,11 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
         }
 
         String result = report.toString().replaceAll("[\r\n]+$", "");
-        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        } catch (Exception e) {
+            // Clipboard access denied or unavailable — silently ignore
+        }
     }
 
     @Override
