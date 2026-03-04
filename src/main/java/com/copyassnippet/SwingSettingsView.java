@@ -209,11 +209,6 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
-    public void clearSelection() {
-        presetTable.clearSelection();
-    }
-
-    @Override
     public void selectRow(int rowIndex) {
         if (rowIndex < 0 || rowIndex >= tableModel.getRowCount()) {
             return;

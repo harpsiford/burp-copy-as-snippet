@@ -6,7 +6,6 @@ import javax.swing.*;
 
 public class MySettingsPanel implements SettingsPanel {
     private final SwingSettingsView view;
-    private final SettingsPresenter presenter;
 
     public MySettingsPanel(PresetStore presetStore, HotkeyManager hotkeyManager) {
         this.view = new SwingSettingsView();
@@ -14,7 +13,7 @@ public class MySettingsPanel implements SettingsPanel {
         PresetApplicationService presetService = new PresetApplicationService(presetStore);
         HotkeySettingsService hotkeySettingsService = new HotkeySettingsService(presetStore, hotkeyManager);
 
-        this.presenter = new SettingsPresenter(view, presetService, hotkeySettingsService);
+        new SettingsPresenter(view, presetService, hotkeySettingsService);
     }
 
     @Override

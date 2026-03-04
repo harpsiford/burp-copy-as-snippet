@@ -47,8 +47,6 @@ interface SettingsView {
 
     int selectedRow();
 
-    void clearSelection();
-
     void selectRow(int rowIndex);
 
     void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean moveUpEnabled, boolean moveDownEnabled);

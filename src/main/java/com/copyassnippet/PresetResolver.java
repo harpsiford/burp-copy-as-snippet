@@ -25,10 +25,6 @@ class PresetResolver {
         }
     }
 
-    List<ResolvedPreset> resolve(List<Preset> userPresets, List<Preset> projectPresets, List<String> order) {
-        return resolve(userPresets, projectPresets, order, true);
-    }
-
     List<ResolvedPreset> resolve(List<Preset> userPresets, List<Preset> projectPresets, List<String> order, boolean includeBuiltIn) {
         Map<String, ResolvedPreset> merged = new LinkedHashMap<>();
 
@@ -46,10 +42,6 @@ class PresetResolver {
         }
 
         return applyOrder(new ArrayList<>(merged.values()), order);
-    }
-
-    List<Preset> resolvePresets(List<Preset> userPresets, List<Preset> projectPresets, List<String> order) {
-        return resolvePresets(userPresets, projectPresets, order, true);
     }
 
     List<Preset> resolvePresets(List<Preset> userPresets, List<Preset> projectPresets, List<String> order, boolean includeBuiltIn) {

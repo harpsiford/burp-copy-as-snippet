@@ -214,7 +214,6 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetRow row = view.rowAt(selectedRow);
         editingRow = selectedRow;
 
         view.setPresetActions(
