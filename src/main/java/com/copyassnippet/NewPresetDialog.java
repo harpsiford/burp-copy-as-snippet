@@ -34,7 +34,7 @@ public class NewPresetDialog {
         JTextField replacementStringField = new JTextField(defaults.getReplacementString(), 20);
         replacementStringField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
 
-        MySettingsPanel.RedactionRuleTableModel ruleTableModel = new MySettingsPanel.RedactionRuleTableModel();
+        RedactionRuleTableModel ruleTableModel = new RedactionRuleTableModel();
         ruleTableModel.setRules(defaults.getRedactionRules());
         JTable ruleTable = new JTable(ruleTableModel);
         ruleTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
