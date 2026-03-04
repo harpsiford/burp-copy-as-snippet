@@ -12,9 +12,9 @@ Are you tired of removing junk headers and cookies from the PoCs you copy from B
 
 **Note**: The default junk header/cookie list is not meant to be universal. For example, you can completely ignore cache-related headers in one PoC, but in another you won't be able to ignore them. Create and use presets, for yourself, and feel free to suggest changes via GitHub issues!
 
-![Settings view](settings-view.png)
+![Settings view](readme/settings-view.png)
 
-![Preset editor](preset-editor.png)
+![Preset editor](readme/preset-editor.png)
 
 ## Building locally
 
