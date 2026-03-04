@@ -16,17 +16,13 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
-/**
- * Standalone utility that redacts HTTP requests/responses using a Preset's
- * header and cookie regex lists, then formats the result using the preset's template.
- */
+
 public class RequestRedactor {
 
     private final List<Pattern> headerPatterns;
     private final List<Pattern> cookiePatterns;
     private final List<Pattern> paramPatterns;
 
-    // Redaction rules: value replacement (run after removal rules)
     private final List<Pattern> redactCookiePatterns;
     private final List<Pattern> redactHeaderPatterns;
     private final List<Pattern> redactParamPatterns;
@@ -147,7 +143,6 @@ public class RequestRedactor {
             }
         }
 
-        // --- Param value redaction (keep param, replace value) ---
         if (!redactParamPatterns.isEmpty()) {
             List<ParsedHttpParameter> paramsToRedact = request.parameters().stream()
                     .filter(p -> p.type() == HttpParameterType.URL
@@ -165,13 +160,11 @@ public class RequestRedactor {
     }
 
     public HttpResponse redact(HttpResponse response) {
-        // --- Header removal ---
         List<HttpHeader> headersToRemove = response.headers().stream()
                 .filter(h -> headerPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches()))
                 .collect(Collectors.toList());
         response = response.withRemovedHeaders(headersToRemove);
 
-        // --- Header value redaction ---
         if (!redactHeaderPatterns.isEmpty()) {
             for (HttpHeader h : new ArrayList<>(response.headers())) {
                 if (redactHeaderPatterns.stream().anyMatch(p -> p.matcher(h.name()).matches())) {
