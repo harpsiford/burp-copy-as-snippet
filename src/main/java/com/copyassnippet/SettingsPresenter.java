@@ -47,11 +47,6 @@ final class SettingsPresenter implements SettingsView.Listener {
         }
 
         PresetRow row = view.rowAt(selectedRow);
-        if (row.getScope().isBuiltIn()) {
-            view.showValidationWarning("The built-in preset cannot be deleted.");
-            return;
-        }
-
         if (!view.confirmDelete(row.getPreset().getName())) {
             return;
         }
@@ -98,11 +93,6 @@ final class SettingsPresenter implements SettingsView.Listener {
         }
 
         PresetRow row = view.rowAt(selectedRow);
-        if (row.getScope().isBuiltIn()) {
-            view.showValidationWarning("The built-in preset cannot be edited.");
-            return;
-        }
-
         addingNew = false;
         editingRow = selectedRow;
         try {
@@ -140,6 +130,7 @@ final class SettingsPresenter implements SettingsView.Listener {
     @Override
     public void onRestoreDefaults() {
         presetService.clearAllSettings();
+        presetService.savePreset(DefaultPresetFactory.createBuiltInPreset(), PresetScope.USER);
         hotkeySettingsService.applyFromStore();
         view.setHotkeyState(hotkeySettingsService.currentSettings());
         onCancel();
@@ -224,13 +215,12 @@ final class SettingsPresenter implements SettingsView.Listener {
         }
 
         PresetRow row = view.rowAt(selectedRow);
-        boolean builtIn = row.getScope().isBuiltIn();
-        editingRow = builtIn ? -1 : selectedRow;
+        editingRow = selectedRow;
 
         view.setPresetActions(
-                !builtIn,
                 true,
-                !builtIn,
+                true,
+                true,
                 selectedRow > 0,
                 selectedRow < view.rowCount() - 1
         );

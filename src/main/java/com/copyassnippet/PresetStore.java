@@ -27,6 +27,7 @@ public class PresetStore {
 
     private static final String HOTKEY_ENABLED_KEY = "hotkey.enabled";
     private static final String HOTKEY_STRING_KEY = "hotkey.string";
+    private static final String BUILT_IN_DEFAULT_REMOVED_KEY = "builtin.default.removed";
 
     private static final String[] USER_PRESET_FIELD_SUFFIXES = {
             ".id",
@@ -170,14 +171,16 @@ public class PresetStore {
         List<Preset> userPresets = getUserPresets();
         List<Preset> projectPresets = getProjectPresets();
         List<String> order = getPresetOrder(userPresets, projectPresets);
-        return presetResolver.resolvePresets(userPresets, projectPresets, order);
+        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
+        return presetResolver.resolvePresets(userPresets, projectPresets, order, includeBuiltIn);
     }
 
     List<PresetResolver.ResolvedPreset> getResolvedPresetEntries() {
         List<Preset> userPresets = getUserPresets();
         List<Preset> projectPresets = getProjectPresets();
         List<String> order = getPresetOrder(userPresets, projectPresets);
-        return presetResolver.resolve(userPresets, projectPresets, order);
+        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
+        return presetResolver.resolve(userPresets, projectPresets, order, includeBuiltIn);
     }
 
     public List<String> getPresetOrder() {
@@ -195,7 +198,8 @@ public class PresetStore {
             return new ArrayList<>();
         }
 
-        List<PresetResolver.ResolvedPreset> resolvedPresets = presetResolver.resolve(userPresets, projectPresets, List.of());
+        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
+        List<PresetResolver.ResolvedPreset> resolvedPresets = presetResolver.resolve(userPresets, projectPresets, List.of(), includeBuiltIn);
         Map<String, String> idByName = new LinkedHashMap<>();
         for (PresetResolver.ResolvedPreset resolvedPreset : resolvedPresets) {
             idByName.put(resolvedPreset.getPreset().getName(), resolvedPreset.getPreset().getId());
@@ -239,6 +243,14 @@ public class PresetStore {
         preferences.setString(HOTKEY_STRING_KEY, hotkey);
     }
 
+    public boolean isBuiltInDefaultRemoved() {
+        return "true".equals(preferences.getString(BUILT_IN_DEFAULT_REMOVED_KEY));
+    }
+
+    public void setBuiltInDefaultRemoved(boolean removed) {
+        preferences.setString(BUILT_IN_DEFAULT_REMOVED_KEY, String.valueOf(removed));
+    }
+
     public boolean isPresetNameTaken(String presetName, String excludedPresetId) {
         String candidate = presetName != null ? presetName.trim() : "";
         if (candidate.isEmpty()) {
@@ -263,6 +275,7 @@ public class PresetStore {
         preferences.deleteString(PRESET_ORDER_KEY_LEGACY);
         preferences.deleteString(HOTKEY_ENABLED_KEY);
         preferences.deleteString(HOTKEY_STRING_KEY);
+        preferences.deleteString(BUILT_IN_DEFAULT_REMOVED_KEY);
     }
 
     /**
@@ -276,6 +289,22 @@ public class PresetStore {
 
     private static String userPresetKey(String storageKeyPart) {
         return USER_PRESET_PREFIX + "." + storageKeyPart;
+    }
+
+    private boolean shouldIncludeBuiltInDefault(List<Preset> userPresets, List<Preset> projectPresets) {
+        if (isBuiltInDefaultRemoved()) {
+            return false;
+        }
+        return !containsBuiltInDefaultId(userPresets) && !containsBuiltInDefaultId(projectPresets);
+    }
+
+    private static boolean containsBuiltInDefaultId(List<Preset> presets) {
+        for (Preset preset : presets) {
+            if (Preset.BUILT_IN_ID.equals(preset.getId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void clearUserPresetSettings() {

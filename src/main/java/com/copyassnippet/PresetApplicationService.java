@@ -19,6 +19,9 @@ final class PresetApplicationService {
     }
 
     void savePreset(Preset preset, PresetScope scope) {
+        if (Preset.BUILT_IN_ID.equals(preset.getId())) {
+            presetStore.setBuiltInDefaultRemoved(false);
+        }
         switch (scope.toEditableScope()) {
             case PROJECT:
                 List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
@@ -38,6 +41,9 @@ final class PresetApplicationService {
     }
 
     void removePreset(String presetId, PresetScope scope) {
+        if (Preset.BUILT_IN_ID.equals(presetId)) {
+            presetStore.setBuiltInDefaultRemoved(true);
+        }
         switch (scope.toEditableScope()) {
             case PROJECT:
                 List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
