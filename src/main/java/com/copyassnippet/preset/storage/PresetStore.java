@@ -57,7 +57,7 @@ public class PresetStore {
         List<String> presetIds = parseMultiline(preferences.getString(USER_PRESET_IDS_KEY));
         for (String presetId : presetIds) {
             String key = userPresetKey(presetId);
-            Preset preset = PresetPreferencesSerializer.load(preferences, key, presetId);
+            Preset preset = PresetPreferencesSerializer.load(preferences, key);
             if (preset != null) {
                 result.add(preset);
             }
@@ -204,15 +204,6 @@ public class PresetStore {
         preferences.deleteString(BUILT_IN_DEFAULT_REMOVED_KEY);
     }
 
-    /**
-     * Kept for compatibility with older code paths.
-     * Intentionally no-op to avoid unexpected wipes during extension unload/reload.
-     */
-    @Deprecated
-    public void clearAllSettings() {
-        // no-op
-    }
-
     private static String userPresetKey(String storageKeyPart) {
         return USER_PRESET_PREFIX + "." + storageKeyPart;
     }
@@ -269,7 +260,7 @@ public class PresetStore {
     private static void loadProjectPresetsByIds(PersistedObject container, Iterable<String> presetIds, List<Preset> target) {
         for (String presetId : presetIds) {
             PersistedObject child = container.getChildObject(presetId);
-            Preset preset = PresetPersistedObjectSerializer.load(child, presetId);
+            Preset preset = PresetPersistedObjectSerializer.load(child);
             if (preset != null) {
                 target.add(preset);
             }

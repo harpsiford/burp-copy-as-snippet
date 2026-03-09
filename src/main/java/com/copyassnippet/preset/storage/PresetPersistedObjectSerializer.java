@@ -52,17 +52,17 @@ final class PresetPersistedObjectSerializer {
         object.setStringList("redactionRules", ruleList);
     }
 
-    static Preset load(PersistedObject object, String fallbackId) {
+    static Preset load(PersistedObject object) {
         if (object == null) {
             return null;
         }
 
         String name = object.getString("name");
-        if (name == null) {
+        String id = object.getString("id");
+        if (id == null || name == null) {
             return null;
         }
 
-        String id = object.getString("id");
         String template = object.getString("template");
         String replacement = object.getString("replacementString");
         String enabledStr = object.getString("enabled");
@@ -88,7 +88,7 @@ final class PresetPersistedObjectSerializer {
         }
 
         return new Preset(
-                id != null ? id : fallbackId,
+                id,
                 name,
                 sanitizedStrings(headers),
                 sanitizedStrings(cookies),

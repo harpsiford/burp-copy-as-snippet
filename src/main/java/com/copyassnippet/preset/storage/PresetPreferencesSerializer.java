@@ -29,10 +29,10 @@ final class PresetPreferencesSerializer {
                         .collect(Collectors.joining("\n")));
     }
 
-    static Preset load(Preferences prefs, String keyPrefix, String fallbackId) {
+    static Preset load(Preferences prefs, String keyPrefix) {
         String id = prefs.getString(keyPrefix + ".id");
         String name = prefs.getString(keyPrefix + ".name");
-        if (name == null) {
+        if (id == null || name == null) {
             return null;
         }
 
@@ -57,7 +57,7 @@ final class PresetPreferencesSerializer {
         }
 
         return new Preset(
-                id != null ? id : fallbackId,
+                id,
                 name,
                 splitLines(headersRaw),
                 splitLines(cookiesRaw),
