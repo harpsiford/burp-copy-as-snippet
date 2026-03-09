@@ -7,25 +7,18 @@ import burp.api.montoya.persistence.Preferences;
 import com.copyassnippet.preset.model.Preset;
 import com.copyassnippet.preset.service.PresetResolver;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class PresetStore {
     private static final String USER_PRESET_PREFIX = "user.preset";
     private static final String USER_PRESET_IDS_KEY = "user.preset.ids";
-    private static final String USER_PRESET_NAMES_KEY_LEGACY = "user.preset.names";
 
     private static final String PROJECT_PRESETS_KEY = "project.presets";
     private static final String PROJECT_PRESET_IDS_LIST_KEY = "ids";
     private static final String PROJECT_PRESET_IDS_RAW_KEY = "idsRaw";
-    private static final String PROJECT_PRESET_NAMES_LIST_KEY_LEGACY = "names";
 
     private static final String PRESET_ORDER_IDS_KEY = "preset.order.ids";
-    private static final String PRESET_ORDER_KEY_LEGACY = "preset.order";
 
     private static final String HOTKEY_ENABLED_KEY = "hotkey.enabled";
     private static final String HOTKEY_STRING_KEY = "hotkey.string";
@@ -62,21 +55,9 @@ public class PresetStore {
     public List<Preset> getUserPresets() {
         List<Preset> result = new ArrayList<>();
         List<String> presetIds = parseMultiline(preferences.getString(USER_PRESET_IDS_KEY));
-        if (!presetIds.isEmpty()) {
-            for (String presetId : presetIds) {
-                String key = userPresetKey(presetId);
-                Preset preset = PresetPreferencesSerializer.load(preferences, key, presetId);
-                if (preset != null) {
-                    result.add(preset);
-                }
-            }
-            return result;
-        }
-
-        List<String> legacyNames = parseMultiline(preferences.getString(USER_PRESET_NAMES_KEY_LEGACY));
-        for (String legacyName : legacyNames) {
-            String key = userPresetKey(legacyName);
-            Preset preset = PresetPreferencesSerializer.load(preferences, key, legacyUserPresetId(legacyName));
+        for (String presetId : presetIds) {
+            String key = userPresetKey(presetId);
+            Preset preset = PresetPreferencesSerializer.load(preferences, key, presetId);
             if (preset != null) {
                 result.add(preset);
             }
@@ -89,10 +70,6 @@ public class PresetStore {
             clearUserPresetEntry(userPresetKey(presetId));
         }
 
-        for (String legacyName : parseMultiline(preferences.getString(USER_PRESET_NAMES_KEY_LEGACY))) {
-            clearUserPresetEntry(userPresetKey(legacyName));
-        }
-
         List<String> presetIds = new ArrayList<>();
         for (Preset preset : presets) {
             presetIds.add(preset.getId());
@@ -100,7 +77,6 @@ public class PresetStore {
         }
 
         preferences.setString(USER_PRESET_IDS_KEY, String.join("\n", presetIds));
-        preferences.setString(USER_PRESET_NAMES_KEY_LEGACY, null);
     }
 
     public List<Preset> getProjectPresets() {
@@ -121,22 +97,6 @@ public class PresetStore {
         PersistedList<String> presetIds = container.getStringList(PROJECT_PRESET_IDS_LIST_KEY);
         if (presetIds != null && !presetIds.isEmpty()) {
             loadProjectPresetsByIds(container, presetIds, result);
-            if (!result.isEmpty()) {
-                return result;
-            }
-        }
-
-        PersistedList<String> legacyNames = container.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY);
-        if (legacyNames == null) {
-            return result;
-        }
-
-        for (String legacyName : legacyNames) {
-            PersistedObject child = container.getChildObject(legacyName);
-            Preset preset = PresetPersistedObjectSerializer.load(child, legacyProjectPresetId(legacyName));
-            if (preset != null) {
-                result.add(preset);
-            }
         }
 
         return result;
@@ -147,7 +107,6 @@ public class PresetStore {
         if (existingContainer != null) {
             deleteProjectChildren(parseMultiline(existingContainer.getString(PROJECT_PRESET_IDS_RAW_KEY)), existingContainer);
             deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_IDS_LIST_KEY), existingContainer);
-            deleteProjectChildren(existingContainer.getStringList(PROJECT_PRESET_NAMES_LIST_KEY_LEGACY), existingContainer);
         }
 
         PersistedObject container = PersistedObject.persistedObject();
@@ -172,7 +131,7 @@ public class PresetStore {
     public List<Preset> getResolvedPresets() {
         List<Preset> userPresets = getUserPresets();
         List<Preset> projectPresets = getProjectPresets();
-        List<String> order = getPresetOrder(userPresets, projectPresets);
+        List<String> order = getPresetOrder();
         boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
         return presetResolver.resolvePresets(userPresets, projectPresets, order, includeBuiltIn);
     }
@@ -180,51 +139,17 @@ public class PresetStore {
     public List<PresetResolver.ResolvedPreset> getResolvedPresetEntries() {
         List<Preset> userPresets = getUserPresets();
         List<Preset> projectPresets = getProjectPresets();
-        List<String> order = getPresetOrder(userPresets, projectPresets);
+        List<String> order = getPresetOrder();
         boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
         return presetResolver.resolve(userPresets, projectPresets, order, includeBuiltIn);
     }
 
     public List<String> getPresetOrder() {
-        return getPresetOrder(getUserPresets(), getProjectPresets());
-    }
-
-    private List<String> getPresetOrder(List<Preset> userPresets, List<Preset> projectPresets) {
-        List<String> orderIds = parseMultiline(preferences.getString(PRESET_ORDER_IDS_KEY));
-        if (!orderIds.isEmpty()) {
-            return orderIds;
-        }
-
-        List<String> legacyOrderNames = parseMultiline(preferences.getString(PRESET_ORDER_KEY_LEGACY));
-        if (legacyOrderNames.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
-        List<PresetResolver.ResolvedPreset> resolvedPresets = presetResolver.resolve(userPresets, projectPresets, List.of(), includeBuiltIn);
-        Map<String, String> idByName = new LinkedHashMap<>();
-        for (PresetResolver.ResolvedPreset resolvedPreset : resolvedPresets) {
-            idByName.put(resolvedPreset.getPreset().getName(), resolvedPreset.getPreset().getId());
-        }
-
-        List<String> migratedOrderIds = new ArrayList<>();
-        for (String presetName : legacyOrderNames) {
-            String presetId = idByName.get(presetName);
-            if (presetId != null) {
-                migratedOrderIds.add(presetId);
-            }
-        }
-
-        if (!migratedOrderIds.isEmpty()) {
-            preferences.setString(PRESET_ORDER_IDS_KEY, String.join("\n", migratedOrderIds));
-        }
-
-        return migratedOrderIds;
+        return parseMultiline(preferences.getString(PRESET_ORDER_IDS_KEY));
     }
 
     public void setPresetOrder(List<String> orderIds) {
         preferences.setString(PRESET_ORDER_IDS_KEY, String.join("\n", orderIds));
-        preferences.setString(PRESET_ORDER_KEY_LEGACY, null);
     }
 
     public boolean isHotkeyEnabled() {
@@ -274,7 +199,6 @@ public class PresetStore {
         extensionData.deleteChildObject(PROJECT_PRESETS_KEY);
 
         preferences.deleteString(PRESET_ORDER_IDS_KEY);
-        preferences.deleteString(PRESET_ORDER_KEY_LEGACY);
         preferences.deleteString(HOTKEY_ENABLED_KEY);
         preferences.deleteString(HOTKEY_STRING_KEY);
         preferences.deleteString(BUILT_IN_DEFAULT_REMOVED_KEY);
@@ -316,7 +240,6 @@ public class PresetStore {
             }
         }
         preferences.deleteString(USER_PRESET_IDS_KEY);
-        preferences.deleteString(USER_PRESET_NAMES_KEY_LEGACY);
     }
 
     private void clearUserPresetEntry(String keyPrefix) {
@@ -365,17 +288,5 @@ public class PresetStore {
             }
         }
         return result;
-    }
-
-    private static String legacyUserPresetId(String legacyName) {
-        return deterministicLegacyId("user:" + legacyName);
-    }
-
-    private static String legacyProjectPresetId(String legacyName) {
-        return deterministicLegacyId("project:" + legacyName);
-    }
-
-    private static String deterministicLegacyId(String seed) {
-        return "legacy-" + UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
 }
