@@ -580,7 +580,7 @@ final class SwingSettingsView implements SettingsView {
         if (sanitized.isEmpty()) {
             sanitized = "preset";
         }
-        return sanitized + ".json";
+        return "burp-copy-as-snippet-preset-" + sanitized + ".json";
     }
 
     private interface EnabledToggleListener {
