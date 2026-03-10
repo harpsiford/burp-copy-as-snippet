@@ -8,30 +8,39 @@ import com.copyassnippet.preset.service.DefaultPresetFactory;
 import com.copyassnippet.preset.service.PresetApplicationService;
 import com.copyassnippet.preset.service.PresetResolver;
 
+import javax.swing.SwingUtilities;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.FutureTask;
 import java.util.stream.Collectors;
 
 final class SettingsPresenter implements SettingsView.Listener {
     private final SettingsView view;
     private final PresetApplicationService presetService;
     private final HotkeySettingsService hotkeySettingsService;
+    private final Executor backgroundExecutor;
 
     private int editingRow = -1;
     private boolean addingNew = false;
+    private boolean busy = false;
 
     SettingsPresenter(
             SettingsView view,
             PresetApplicationService presetService,
-            HotkeySettingsService hotkeySettingsService
+            HotkeySettingsService hotkeySettingsService,
+            Executor backgroundExecutor
     ) {
         this.view = view;
         this.presetService = presetService;
         this.hotkeySettingsService = hotkeySettingsService;
+        this.backgroundExecutor = backgroundExecutor;
 
         this.view.setListener(this);
         this.view.setHotkeyState(hotkeySettingsService.currentSettings());
+        this.view.setBusy(false);
 
         clearEditor();
         view.setEditorEnabled(false);
@@ -140,26 +149,9 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        try {
-            List<PresetApplicationService.ImportPlanRow> importPlan = presetService.loadImportPlan(
-                    files.stream().map(File::toPath).collect(Collectors.toList())
-            );
-            if (presetService.hasImportConflicts(importPlan)) {
-                importPlan = view.resolveImportConflicts(importPlan);
-                if (importPlan == null) {
-                    return;
-                }
-            }
-
-            List<String> importedPresetIds = presetService.importPresets(importPlan);
-            onCancel();
-            reloadTable();
-            if (!importedPresetIds.isEmpty()) {
-                reselectPreset(importedPresetIds.get(importedPresetIds.size() - 1));
-            }
-        } catch (IllegalStateException exception) {
-            view.showValidationWarning(exception.getMessage());
-        }
+        setBusy(true);
+        List<java.nio.file.Path> importPaths = files.stream().map(File::toPath).collect(Collectors.toList());
+        backgroundExecutor.execute(() -> loadPresetsInBackground(importPaths));
     }
 
     @Override
@@ -176,11 +168,9 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        try {
-            presetService.exportPreset(row.getPreset(), file.toPath());
-        } catch (IllegalStateException exception) {
-            view.showValidationWarning(exception.getMessage());
-        }
+        Preset preset = row.getPreset();
+        setBusy(true);
+        backgroundExecutor.execute(() -> exportPresetInBackground(preset, file));
     }
 
     @Override
@@ -249,28 +239,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
     @Override
     public void onSelectionChanged() {
-        if (addingNew) {
-            return;
-        }
-
-        int selectedRow = view.selectedRow();
-        if (selectedRow < 0) {
-            view.setPresetActions(false, false, false, false, false, false);
-            clearEditor();
-            view.setEditorEnabled(false);
-            return;
-        }
-
-        editingRow = selectedRow;
-
-        view.setPresetActions(
-                true,
-                true,
-                true,
-                true,
-                selectedRow > 0,
-                selectedRow < view.rowCount() - 1
-        );
+        refreshPresetActions();
     }
 
     @Override
@@ -334,5 +303,129 @@ final class SettingsPresenter implements SettingsView.Listener {
         }
 
         return -1;
+    }
+
+    private void setBusy(boolean busy) {
+        this.busy = busy;
+        view.setBusy(busy);
+        refreshPresetActions();
+    }
+
+    private void refreshPresetActions() {
+        if (busy || addingNew) {
+            view.setPresetActions(false, false, false, false, false, false);
+            return;
+        }
+
+        int selectedRow = view.selectedRow();
+        if (selectedRow < 0) {
+            view.setPresetActions(false, false, false, false, false, false);
+            clearEditor();
+            view.setEditorEnabled(false);
+            return;
+        }
+
+        editingRow = selectedRow;
+        view.setPresetActions(
+                true,
+                true,
+                true,
+                true,
+                selectedRow > 0,
+                selectedRow < view.rowCount() - 1
+        );
+    }
+
+    private void loadPresetsInBackground(List<java.nio.file.Path> importPaths) {
+        try {
+            List<PresetApplicationService.ImportPlanRow> importPlan = presetService.loadImportPlan(importPaths);
+            if (Thread.currentThread().isInterrupted()) {
+                runOnEdt(() -> setBusy(false));
+                return;
+            }
+
+            if (presetService.hasImportConflicts(importPlan)) {
+                List<PresetApplicationService.ImportPlanRow> currentImportPlan = importPlan;
+                List<PresetApplicationService.ImportPlanRow> resolvedPlan = callOnEdt(
+                        () -> view.resolveImportConflicts(currentImportPlan)
+                );
+                if (resolvedPlan == null || Thread.currentThread().isInterrupted()) {
+                    runOnEdt(() -> setBusy(false));
+                    return;
+                }
+                importPlan = resolvedPlan;
+            }
+
+            List<String> importedPresetIds = presetService.importPresets(importPlan);
+            if (Thread.currentThread().isInterrupted()) {
+                runOnEdt(() -> setBusy(false));
+                return;
+            }
+
+            runOnEdt(() -> {
+                onCancel();
+                reloadTable();
+                if (!importedPresetIds.isEmpty()) {
+                    reselectPreset(importedPresetIds.get(importedPresetIds.size() - 1));
+                }
+                setBusy(false);
+            });
+        } catch (IllegalStateException exception) {
+            runOnEdt(() -> {
+                setBusy(false);
+                view.showValidationWarning(exception.getMessage());
+            });
+        }
+    }
+
+    private void exportPresetInBackground(Preset preset, File file) {
+        try {
+            presetService.exportPreset(preset, file.toPath());
+            if (Thread.currentThread().isInterrupted()) {
+                runOnEdt(() -> setBusy(false));
+                return;
+            }
+
+            runOnEdt(() -> setBusy(false));
+        } catch (IllegalStateException exception) {
+            runOnEdt(() -> {
+                setBusy(false);
+                view.showValidationWarning(exception.getMessage());
+            });
+        }
+    }
+
+    private static void runOnEdt(Runnable action) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            action.run();
+            return;
+        }
+        SwingUtilities.invokeLater(action);
+    }
+
+    private static <T> T callOnEdt(EdtSupplier<T> supplier) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return supplier.get();
+        }
+
+        FutureTask<T> task = new FutureTask<>(supplier::get);
+        SwingUtilities.invokeLater(task);
+        try {
+            return task.get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new IllegalStateException("Failed while waiting for the settings UI.", cause);
+        }
+    }
+
+    @FunctionalInterface
+    private interface EdtSupplier<T> {
+        T get();
     }
 }

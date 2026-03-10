@@ -3,7 +3,7 @@ plugins {
 }
 
 group 'com.copyassnippet'
-version '2.1.2'
+version '2.1.3'
 
 def debugBuild = (findProperty("debug") ?: "false").toString().toBoolean()
 def generatedBuildFlagsDir = layout.buildDirectory.dir("generated/sources/buildFlags/java/main")

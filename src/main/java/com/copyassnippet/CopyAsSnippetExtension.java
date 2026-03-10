@@ -11,6 +11,10 @@ import com.copyassnippet.redaction.CachingRedactionEngine;
 import com.copyassnippet.ui.contextmenu.MyContextMenuItemsProvider;
 import com.copyassnippet.ui.settings.MySettingsPanel;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class CopyAsSnippetExtension implements BurpExtension
 {
     @Override
@@ -21,17 +25,24 @@ public class CopyAsSnippetExtension implements BurpExtension
         PresetStore presetStore = new PresetStore(api);
         UserSettingsLogger.logCurrentSettings(api.logging(), api.persistence().preferences());
         CachingRedactionEngine redactionEngine = new CachingRedactionEngine();
-        HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore, redactionEngine);
+        ExecutorService backgroundExecutor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "copy-as-snippet-worker");
+            thread.setDaemon(true);
+            return thread;
+        });
+        Executor backgroundWorker = backgroundExecutor;
+        HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore, redactionEngine, backgroundWorker);
         MySettingsPanel settingsPanel = new MySettingsPanel(
                 presetStore,
                 hotkeyManager,
+                backgroundExecutor,
                 api.userInterface()::applyThemeToComponent,
                 api.userInterface().swingUtils()::windowForComponent,
                 api.userInterface().swingUtils()::suiteFrame
         );
 
         Registration contextMenuRegistration = api.userInterface().registerContextMenuItemsProvider(
-                new MyContextMenuItemsProvider(presetStore, redactionEngine)
+                new MyContextMenuItemsProvider(presetStore, redactionEngine, backgroundWorker)
         );
         Registration settingsPanelRegistration = api.userInterface().registerSettingsPanel(settingsPanel);
 
@@ -41,6 +52,7 @@ public class CopyAsSnippetExtension implements BurpExtension
                         api.logging(),
                         hotkeyManager,
                         settingsPanel,
+                        backgroundExecutor,
                         contextMenuRegistration,
                         settingsPanelRegistration
                 )
@@ -52,6 +64,7 @@ public class CopyAsSnippetExtension implements BurpExtension
         private final Logging logging;
         private final HotkeyManager hotkeyManager;
         private final MySettingsPanel settingsPanel;
+        private final ExecutorService backgroundExecutor;
         private final Registration contextMenuRegistration;
         private final Registration settingsPanelRegistration;
 
@@ -59,12 +72,14 @@ public class CopyAsSnippetExtension implements BurpExtension
                 Logging logging,
                 HotkeyManager hotkeyManager,
                 MySettingsPanel settingsPanel,
+                ExecutorService backgroundExecutor,
                 Registration contextMenuRegistration,
                 Registration settingsPanelRegistration
         ) {
             this.logging = logging;
             this.hotkeyManager = hotkeyManager;
             this.settingsPanel = settingsPanel;
+            this.backgroundExecutor = backgroundExecutor;
             this.contextMenuRegistration = contextMenuRegistration;
             this.settingsPanelRegistration = settingsPanelRegistration;
         }
@@ -74,6 +89,7 @@ public class CopyAsSnippetExtension implements BurpExtension
         {
             cleanup("settings dialogs", settingsPanel::dispose);
             cleanup("hotkey handler", hotkeyManager::shutdown);
+            cleanup("background executor", () -> backgroundExecutor.shutdownNow());
             deregister("context menu items provider", contextMenuRegistration);
             deregister("settings panel", settingsPanelRegistration);
         }

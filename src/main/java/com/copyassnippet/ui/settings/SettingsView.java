@@ -61,6 +61,8 @@ interface SettingsView {
 
     void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean exportEnabled, boolean moveUpEnabled, boolean moveDownEnabled);
 
+    void setBusy(boolean busy);
+
     void setEditorFormData(PresetFormData formData);
 
     PresetFormData getEditorFormData();

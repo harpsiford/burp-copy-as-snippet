@@ -13,6 +13,7 @@ import java.awt.datatransfer.StringSelection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,11 +23,17 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
     private static final Logger LOGGER = Logger.getLogger(MyContextMenuItemsProvider.class.getName());
     private final PresetStore presetStore;
     private final CachingRedactionEngine redactionEngine;
+    private final Executor backgroundExecutor;
 
-    public MyContextMenuItemsProvider(PresetStore presetStore, CachingRedactionEngine redactionEngine)
+    public MyContextMenuItemsProvider(
+            PresetStore presetStore,
+            CachingRedactionEngine redactionEngine,
+            Executor backgroundExecutor
+    )
     {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;
+        this.backgroundExecutor = backgroundExecutor;
     }
 
     private List<HttpRequestResponse> getRequestResponses(ContextMenuEvent event) {
@@ -37,21 +44,11 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
     }
 
     private void copyWithPreset(ContextMenuEvent event, Preset preset) {
-        List<HttpRequestResponse> requestResponses = getRequestResponses(event);
-
-        StringBuilder report = new StringBuilder();
-        for (HttpRequestResponse rr : requestResponses) {
-            if (report.length() > 0) {
-                report.append("\r\n");
-            }
-            report.append(redactionEngine.format(preset, rr));
-        }
-
-        String result = report.toString().replaceAll("[\r\n]+$", "");
         try {
-            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to copy snippet to clipboard from context menu.", e);
+            List<HttpRequestResponse> requestResponses = List.copyOf(getRequestResponses(event));
+            backgroundExecutor.execute(() -> copySnippet(preset, requestResponses));
+        } catch (RuntimeException exception) {
+            LOGGER.log(Level.WARNING, "Failed to queue snippet copy from context menu.", exception);
         }
     }
 
@@ -71,5 +68,22 @@ public class MyContextMenuItemsProvider implements ContextMenuItemsProvider
         List<Component> menuItemList = new ArrayList<>();
         menuItemList.add(submenu);
         return menuItemList;
+    }
+
+    private void copySnippet(Preset preset, List<HttpRequestResponse> requestResponses) {
+        StringBuilder report = new StringBuilder();
+        for (HttpRequestResponse rr : requestResponses) {
+            if (report.length() > 0) {
+                report.append("\r\n");
+            }
+            report.append(redactionEngine.format(preset, rr));
+        }
+
+        String result = report.toString().replaceAll("[\r\n]+$", "");
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        } catch (Exception exception) {
+            LOGGER.log(Level.WARNING, "Failed to copy snippet to clipboard from context menu.", exception);
+        }
     }
 }

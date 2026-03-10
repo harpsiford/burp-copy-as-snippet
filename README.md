@@ -13,7 +13,8 @@ Are you tired of removing junk headers and cookies from the PoCs copied from Bur
   - Automatic junk header/cookie removal
   - HTTP parameter removal (GET, POST forms, JSON)
   - JWTs and sensitive cookies are replaced with `REDACTED` (configurable via extension settings)
-- Configure an editor keyboard shortcut to skip the context menu
+  - Select multiple requests from Proxy to report them all at once
+- Configure a request editor hotkey to skip the context menu
 - Supports multiple presets
   - All presets are shared between projects
   - Preset import/export

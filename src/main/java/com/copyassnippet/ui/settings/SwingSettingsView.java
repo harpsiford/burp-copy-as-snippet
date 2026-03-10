@@ -42,12 +42,15 @@ final class SwingSettingsView implements SettingsView {
     private final JTable presetTable;
 
     private final PresetFormPanel presetFormPanel;
+    private final JButton addButton;
     private final JButton deleteButton;
     private final JButton duplicateButton;
     private final JButton editButton;
+    private final JButton loadButton;
     private final JButton exportButton;
     private final JButton moveUpButton;
     private final JButton moveDownButton;
+    private final JButton restoreDefaultsButton;
     private final JButton saveButton;
     private final JButton cancelButton;
     private JDialog editorDialog;
@@ -57,6 +60,7 @@ final class SwingSettingsView implements SettingsView {
     private final JCheckBox hotkeyEnabledCheckbox;
     private final JTextField hotkeyField;
     private final JButton hotkeyChangeButton;
+    private boolean busy;
 
     SwingSettingsView(
             Consumer<Component> themeApplier,
@@ -99,15 +103,15 @@ final class SwingSettingsView implements SettingsView {
         JScrollPane tableScroll = new JScrollPane(presetTable);
         tableScroll.setPreferredSize(new Dimension(400, 150));
 
-        JButton addButton = new JButton("Add");
-        JButton loadButton = new JButton("Load ...");
+        addButton = new JButton("Add");
+        loadButton = new JButton("Load ...");
         exportButton = new JButton("Export ...");
         deleteButton = new JButton("Remove");
         duplicateButton = new JButton("Duplicate");
         editButton = new JButton("Edit");
         moveUpButton = new JButton("Up");
         moveDownButton = new JButton("Down");
-        JButton restoreDefaultsButton = new JButton("Restore defaults");
+        restoreDefaultsButton = new JButton("Restore defaults");
 
         loadButton.addActionListener(e -> notifyLoadPresets());
         exportButton.addActionListener(e -> notifyExportPreset());
@@ -270,12 +274,34 @@ final class SwingSettingsView implements SettingsView {
 
     @Override
     public void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean exportEnabled, boolean moveUpEnabled, boolean moveDownEnabled) {
-        deleteButton.setEnabled(deleteEnabled);
-        duplicateButton.setEnabled(duplicateEnabled);
-        editButton.setEnabled(editEnabled);
-        exportButton.setEnabled(exportEnabled);
-        moveUpButton.setEnabled(moveUpEnabled);
-        moveDownButton.setEnabled(moveDownEnabled);
+        deleteButton.setEnabled(!busy && deleteEnabled);
+        duplicateButton.setEnabled(!busy && duplicateEnabled);
+        editButton.setEnabled(!busy && editEnabled);
+        exportButton.setEnabled(!busy && exportEnabled);
+        moveUpButton.setEnabled(!busy && moveUpEnabled);
+        moveDownButton.setEnabled(!busy && moveDownEnabled);
+    }
+
+    @Override
+    public void setBusy(boolean busy) {
+        this.busy = busy;
+        Cursor cursor = busy ? Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR) : null;
+
+        panel.setCursor(cursor);
+        presetTable.setCursor(cursor);
+        addButton.setEnabled(!busy);
+        loadButton.setEnabled(!busy);
+        restoreDefaultsButton.setEnabled(!busy);
+        presetTable.setEnabled(!busy);
+
+        if (busy) {
+            deleteButton.setEnabled(false);
+            duplicateButton.setEnabled(false);
+            editButton.setEnabled(false);
+            exportButton.setEnabled(false);
+            moveUpButton.setEnabled(false);
+            moveDownButton.setEnabled(false);
+        }
     }
 
     @Override

@@ -11,15 +11,23 @@ import com.copyassnippet.redaction.CachingRedactionEngine;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 public class HotkeyHandler implements HotKeyHandler {
     private final PresetStore presetStore;
     private final CachingRedactionEngine redactionEngine;
+    private final Executor backgroundExecutor;
     private final Logging logging;
 
-    public HotkeyHandler(PresetStore presetStore, CachingRedactionEngine redactionEngine, Logging logging) {
+    public HotkeyHandler(
+            PresetStore presetStore,
+            CachingRedactionEngine redactionEngine,
+            Executor backgroundExecutor,
+            Logging logging
+    ) {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;
+        this.backgroundExecutor = backgroundExecutor;
         this.logging = logging;
     }
 
@@ -35,12 +43,10 @@ public class HotkeyHandler implements HotKeyHandler {
             return;
         }
 
-        String result = redactionEngine.format(preset, requestResponse);
-
         try {
-            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
-        } catch (Exception e) {
-            logging.logToError("Failed to copy snippet to clipboard from hotkey.", e);
+            backgroundExecutor.execute(() -> copySnippet(preset, requestResponse));
+        } catch (RuntimeException exception) {
+            logging.logToError("Failed to queue snippet copy from hotkey.", exception);
         }
     }
 
@@ -54,6 +60,16 @@ public class HotkeyHandler implements HotKeyHandler {
         }
 
         return null;
+    }
+
+    private void copySnippet(Preset preset, HttpRequestResponse requestResponse) {
+        String result = redactionEngine.format(preset, requestResponse);
+
+        try {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
+        } catch (Exception exception) {
+            logging.logToError("Failed to copy snippet to clipboard from hotkey.", exception);
+        }
     }
 
     private Preset getFirstEnabledPreset() {
