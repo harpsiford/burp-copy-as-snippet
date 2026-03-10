@@ -24,6 +24,7 @@ public class PresetStore {
 
     PresetStore(MontoyaApi api, PresetResolver presetResolver) {
         this.preferences = api.persistence().preferences();
+        UserSettings.migrate(preferences);
         this.presetResolver = presetResolver;
     }
 
@@ -116,7 +117,6 @@ public class PresetStore {
     }
 
     public void resetAllSettings() {
-        preferences.deleteInteger(PresetStorageSchema.USER_SETTINGS_SCHEMA_VERSION_KEY);
         UserSettings.clear(preferences);
         cachedUserPresets = List.of();
         cachedPresetOrder = List.of();
