@@ -1,6 +1,7 @@
 package com.copyassnippet.hotkey;
 
 import burp.api.montoya.http.message.HttpRequestResponse;
+import burp.api.montoya.logging.Logging;
 import burp.api.montoya.ui.hotkey.HotKeyEvent;
 import burp.api.montoya.ui.hotkey.HotKeyHandler;
 import com.copyassnippet.preset.model.Preset;
@@ -10,36 +11,49 @@ import com.copyassnippet.redaction.CachingRedactionEngine;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class HotkeyHandler implements HotKeyHandler {
-    private static final Logger LOGGER = Logger.getLogger(HotkeyHandler.class.getName());
-
     private final PresetStore presetStore;
     private final CachingRedactionEngine redactionEngine;
+    private final Logging logging;
 
-    public HotkeyHandler(PresetStore presetStore, CachingRedactionEngine redactionEngine) {
+    public HotkeyHandler(PresetStore presetStore, CachingRedactionEngine redactionEngine, Logging logging) {
         this.presetStore = presetStore;
         this.redactionEngine = redactionEngine;
+        this.logging = logging;
     }
 
     @Override
     public void handle(HotKeyEvent event) {
-        if (event.messageEditorRequestResponse().isEmpty()) return;
-
-        HttpRequestResponse requestResponse = event.messageEditorRequestResponse().get().requestResponse();
+        HttpRequestResponse requestResponse = requestResponseFor(event);
+        if (requestResponse == null) {
+            return;
+        }
 
         Preset preset = getFirstEnabledPreset();
-        if (preset == null) return;
+        if (preset == null) {
+            return;
+        }
 
         String result = redactionEngine.format(preset, requestResponse);
 
         try {
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(result), null);
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to copy snippet to clipboard from hotkey.", e);
+            logging.logToError("Failed to copy snippet to clipboard from hotkey.", e);
         }
+    }
+
+    private static HttpRequestResponse requestResponseFor(HotKeyEvent event) {
+        if (event.messageEditorRequestResponse().isPresent()) {
+            return event.messageEditorRequestResponse().get().requestResponse();
+        }
+
+        if (!event.selectedRequestResponses().isEmpty()) {
+            return event.selectedRequestResponses().get(0);
+        }
+
+        return null;
     }
 
     private Preset getFirstEnabledPreset() {

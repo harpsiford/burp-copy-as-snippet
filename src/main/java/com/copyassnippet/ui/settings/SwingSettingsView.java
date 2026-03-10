@@ -139,7 +139,7 @@ final class SwingSettingsView implements SettingsView {
         editorPanel.add(editorButtons, BorderLayout.SOUTH);
         editorPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in HTTP message editor, uses the first active preset)");
+        hotkeyEnabledCheckbox = new JCheckBox("Enable keyboard shortcut (works in the HTTP message editor, uses the first active preset)");
         Icon hotkeyIcon = scaledNativeCheckboxIcon(
                 hotkeyEnabledCheckbox.getFontMetrics(hotkeyEnabledCheckbox.getFont()).getHeight() - 2);
         if (hotkeyIcon != null) {
@@ -659,8 +659,7 @@ final class SwingSettingsView implements SettingsView {
     }
 
     private static String primaryModifierNote() {
-        return "Use " + (HotkeyDefinition.usesCommandModifier() ? "Cmd" : "Ctrl")
-                + " with an additional key. Alt and Shift are optional.";
+        return "Use Ctrl with an additional key. Alt and Shift are optional.";
     }
 
     private static String invalidShortcutMessage() {
@@ -698,19 +697,14 @@ final class SwingSettingsView implements SettingsView {
     }
 
     private static boolean hasPrimaryModifier(int modifiersEx) {
-        int requiredMask = HotkeyDefinition.usesCommandModifier()
-                ? InputEvent.META_DOWN_MASK
-                : InputEvent.CTRL_DOWN_MASK;
-        return (modifiersEx & requiredMask) != 0;
+        return (modifiersEx & InputEvent.CTRL_DOWN_MASK) != 0
+                || (isMacOs() && (modifiersEx & InputEvent.META_DOWN_MASK) != 0);
     }
 
     private static List<String> modifierParts(int modifiersEx) {
         List<String> parts = new ArrayList<>();
-        if (HotkeyDefinition.usesCommandModifier()) {
-            if ((modifiersEx & InputEvent.META_DOWN_MASK) != 0) {
-                parts.add("Cmd");
-            }
-        } else if ((modifiersEx & InputEvent.CTRL_DOWN_MASK) != 0) {
+        if ((modifiersEx & InputEvent.CTRL_DOWN_MASK) != 0
+                || (isMacOs() && (modifiersEx & InputEvent.META_DOWN_MASK) != 0)) {
             parts.add("Ctrl");
         }
 
@@ -721,6 +715,10 @@ final class SwingSettingsView implements SettingsView {
             parts.add("Shift");
         }
         return parts;
+    }
+
+    private static boolean isMacOs() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("mac");
     }
 
     private static String keyToken(int keyCode) {

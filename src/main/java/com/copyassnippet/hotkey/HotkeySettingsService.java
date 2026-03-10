@@ -12,12 +12,15 @@ public final class HotkeySettingsService {
     }
 
     public HotkeySettingsState currentSettings() {
-        return new HotkeySettingsState(presetStore.isHotkeyEnabled(), presetStore.getHotkeyString());
+        return new HotkeySettingsState(
+                presetStore.isHotkeyEnabled(),
+                HotkeyDefinition.canonicalShortcut(presetStore.getHotkeyString())
+        );
     }
 
     public void apply(HotkeySettingsState state) {
         presetStore.setHotkeyEnabled(state.isEnabled());
-        presetStore.setHotkeyString(state.getHotkey());
+        presetStore.setHotkeyString(HotkeyDefinition.canonicalShortcut(state.getHotkey()));
         hotkeyManager.applyFromSettings();
     }
 
