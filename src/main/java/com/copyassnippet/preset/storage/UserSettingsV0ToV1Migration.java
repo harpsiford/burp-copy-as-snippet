@@ -14,6 +14,7 @@ final class UserSettingsV0ToV1Migration {
         List<String> presetOrder = UserSettingsV0.readPresetOrder(preferences);
         Boolean hotkeyEnabled = UserSettingsV0.readHotkeyEnabled(preferences);
         String hotkeyString = UserSettingsV0.readHotkeyString(preferences);
+        Boolean builtInDefaultRemoved = UserSettingsV0.readBuiltInDefaultRemoved(preferences);
 
         UserSettingsV0.clear(preferences);
 
@@ -25,6 +26,9 @@ final class UserSettingsV0ToV1Migration {
         }
         if (hotkeyString != null) {
             UserSettingsV1.writeHotkeyString(preferences, hotkeyString);
+        }
+        if (builtInDefaultRemoved != null) {
+            UserSettingsV1.writeBuiltInDefaultRemoved(preferences, builtInDefaultRemoved);
         }
     }
 }
