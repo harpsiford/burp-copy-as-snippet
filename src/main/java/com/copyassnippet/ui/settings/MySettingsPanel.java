@@ -36,4 +36,10 @@ public class MySettingsPanel implements SettingsPanel {
         }
         return view.uiComponent();
     }
+
+    public void dispose() {
+        if (view != null) {
+            view.dispose();
+        }
+    }
 }

@@ -28,6 +28,10 @@ public class HotkeyManager {
         }
     }
 
+    public void shutdown() {
+        deregister();
+    }
+
     private void register(String hotkeyString) {
         try {
             currentRegistration = api.userInterface().registerHotKeyHandler(

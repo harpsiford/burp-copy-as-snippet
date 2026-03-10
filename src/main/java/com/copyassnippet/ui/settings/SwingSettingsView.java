@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.lang.reflect.InvocationTargetException;
 
 final class SwingSettingsView implements SettingsView {
     private Listener listener;
@@ -46,6 +47,7 @@ final class SwingSettingsView implements SettingsView {
     private final JButton saveButton;
     private final JButton cancelButton;
     private JDialog editorDialog;
+    private JDialog hotkeyCaptureDialog;
     private final JPanel editorPanel;
 
     private final JCheckBox hotkeyEnabledCheckbox;
@@ -206,6 +208,21 @@ final class SwingSettingsView implements SettingsView {
     @Override
     public JPanel uiComponent() {
         return panel;
+    }
+
+    void dispose() {
+        if (SwingUtilities.isEventDispatchThread()) {
+            disposeDialogs();
+            return;
+        }
+
+        try {
+            SwingUtilities.invokeAndWait(this::disposeDialogs);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        } catch (InvocationTargetException exception) {
+            throw new IllegalStateException("Unable to dispose Copy as snippet dialogs.", exception.getCause());
+        }
     }
 
     @Override
@@ -542,6 +559,7 @@ final class SwingSettingsView implements SettingsView {
     private String captureHotkey(String currentHotkey) {
         Window owner = SwingUtilities.getWindowAncestor(panel);
         JDialog dialog = createHotkeyCaptureDialog(owner);
+        hotkeyCaptureDialog = dialog;
 
         JTextField previewField = new JTextField(currentHotkey, 20);
         previewField.setEditable(false);
@@ -634,6 +652,9 @@ final class SwingSettingsView implements SettingsView {
             SwingUtilities.invokeLater(() -> dialog.requestFocus());
             dialog.setVisible(true);
         } finally {
+            if (hotkeyCaptureDialog == dialog) {
+                hotkeyCaptureDialog = null;
+            }
             focusManager.removeKeyEventDispatcher(dispatcher);
         }
         return appliedHotkey.get();
@@ -655,6 +676,17 @@ final class SwingSettingsView implements SettingsView {
     private void applyTheme(Component component) {
         if (themeApplier != null) {
             themeApplier.accept(component);
+        }
+    }
+
+    private void disposeDialogs() {
+        if (hotkeyCaptureDialog != null) {
+            hotkeyCaptureDialog.dispose();
+            hotkeyCaptureDialog = null;
+        }
+        if (editorDialog != null) {
+            editorDialog.dispose();
+            editorDialog = null;
         }
     }
 
