@@ -36,13 +36,6 @@ public final class UserSettingsV1 {
     private UserSettingsV1() {
     }
 
-    static boolean hasStructuredData(Preferences preferences) {
-        return preferences.getString(USER_PRESETS_JSON_KEY) != null
-                || preferences.getString(PRESET_ORDER_JSON_KEY) != null
-                || preferences.getBoolean(HOTKEY_ENABLED_KEY) != null
-                || preferences.getBoolean(BUILT_IN_DEFAULT_REMOVED_KEY) != null;
-    }
-
     static List<Preset> readPresets(Preferences preferences) {
         String rawJson = preferences.getString(USER_PRESETS_JSON_KEY);
         if (rawJson == null || rawJson.isBlank()) {

@@ -56,7 +56,8 @@ class UserSettingsMigrationTest {
         assertEquals(List.of("legacy-id"), UserSettings.readPresetOrder(preferences));
         assertTrue(UserSettings.isHotkeyEnabled(preferences));
         assertEquals("Ctrl+Alt+Shift+C", UserSettings.readHotkeyString(preferences, PresetStore.DEFAULT_HOTKEY));
-        assertTrue(UserSettings.isBuiltInDefaultRemoved(preferences));
+        assertFalse(UserSettings.isBuiltInDefaultRemoved(preferences));
+        assertFalse(preferences.booleanKeys().contains("builtin.default.removed"));
     }
 
     @Test

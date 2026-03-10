@@ -43,13 +43,18 @@ final class UserSettingsMigrator {
     }
 
     private static SchemaVersion detectSchemaVersion(Preferences preferences) {
+        if (UserSettingsV0.isDetected(preferences)) {
+            return SchemaVersion.V0;
+        }
+
         Integer storedVersion = preferences.getInteger(PresetStorageSchema.USER_SETTINGS_SCHEMA_VERSION_KEY);
         if (storedVersion != null) {
             return SchemaVersion.fromPersistedVersion(storedVersion);
-        } else {
-            return SchemaVersion.V0;
         }
+
+        return SchemaVersion.CURRENT;
     }
+
 
     private enum SchemaVersion {
         V0(UserSettingsV0.SCHEMA_VERSION),

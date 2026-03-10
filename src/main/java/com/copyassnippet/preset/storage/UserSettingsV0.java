@@ -25,8 +25,7 @@ public final class UserSettingsV0 {
         return preferences.getString(USER_PRESET_IDS_KEY) != null
                 || preferences.getString(PRESET_ORDER_IDS_KEY) != null
                 || preferences.getString(HOTKEY_ENABLED_KEY) != null
-                || preferences.getString(HOTKEY_STRING_KEY) != null
-                || preferences.getString(BUILT_IN_DEFAULT_REMOVED_KEY) != null;
+                || preferences.stringKeys().stream().anyMatch(key -> key.startsWith("user.preset."));
     }
 
     public static List<Preset> readPresets(Preferences preferences) {

@@ -16,6 +16,7 @@ public class CopyAsSnippetExtension implements BurpExtension
         api.extension().setName("Copy as snippet");
 
         PresetStore presetStore = new PresetStore(api);
+        UserSettingsLogger.logCurrentSettings(api.logging(), api.persistence().preferences());
         CachingRedactionEngine redactionEngine = new CachingRedactionEngine();
         HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore, redactionEngine);
 
