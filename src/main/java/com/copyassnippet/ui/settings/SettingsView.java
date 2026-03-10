@@ -2,9 +2,11 @@ package com.copyassnippet.ui.settings;
 
 import com.copyassnippet.hotkey.HotkeySettingsState;
 import com.copyassnippet.preset.form.PresetFormData;
+import com.copyassnippet.preset.service.PresetApplicationService;
 import com.copyassnippet.preset.service.PresetResolver;
 
 import javax.swing.*;
+import java.io.File;
 import java.util.List;
 
 interface SettingsView {
@@ -21,6 +23,10 @@ interface SettingsView {
         void onMoveUp();
 
         void onMoveDown();
+
+        void onLoadPresets();
+
+        void onExportPreset();
 
         void onRestoreDefaults();
 
@@ -53,7 +59,7 @@ interface SettingsView {
 
     void selectRow(int rowIndex);
 
-    void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean moveUpEnabled, boolean moveDownEnabled);
+    void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean exportEnabled, boolean moveUpEnabled, boolean moveDownEnabled);
 
     void setEditorFormData(PresetFormData formData);
 
@@ -66,6 +72,12 @@ interface SettingsView {
     void showValidationWarning(String message);
 
     boolean confirmDelete(String presetName);
+
+    List<File> choosePresetFilesToLoad();
+
+    File choosePresetFileToExport(String suggestedFileName);
+
+    List<PresetApplicationService.ImportPlanRow> resolveImportConflicts(List<PresetApplicationService.ImportPlanRow> rows);
 
     HotkeySettingsState getHotkeyState();
 

@@ -8,8 +8,10 @@ import com.copyassnippet.preset.service.DefaultPresetFactory;
 import com.copyassnippet.preset.service.PresetApplicationService;
 import com.copyassnippet.preset.service.PresetResolver;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 final class SettingsPresenter implements SettingsView.Listener {
     private final SettingsView view;
@@ -33,7 +35,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         clearEditor();
         view.setEditorEnabled(false);
-        view.setPresetActions(false, false, false, false, false);
+        view.setPresetActions(false, false, false, false, false, false);
     }
 
     @Override
@@ -132,6 +134,56 @@ final class SettingsPresenter implements SettingsView.Listener {
     }
 
     @Override
+    public void onLoadPresets() {
+        List<File> files = view.choosePresetFilesToLoad();
+        if (files.isEmpty()) {
+            return;
+        }
+
+        try {
+            List<PresetApplicationService.ImportPlanRow> importPlan = presetService.loadImportPlan(
+                    files.stream().map(File::toPath).collect(Collectors.toList())
+            );
+            if (presetService.hasImportConflicts(importPlan)) {
+                importPlan = view.resolveImportConflicts(importPlan);
+                if (importPlan == null) {
+                    return;
+                }
+            }
+
+            List<String> importedPresetIds = presetService.importPresets(importPlan);
+            onCancel();
+            reloadTable();
+            if (!importedPresetIds.isEmpty()) {
+                reselectPreset(importedPresetIds.get(importedPresetIds.size() - 1));
+            }
+        } catch (IllegalStateException exception) {
+            view.showValidationWarning(exception.getMessage());
+        }
+    }
+
+    @Override
+    public void onExportPreset() {
+        int selectedRow = selectedRowForRowAction();
+        if (selectedRow < 0) {
+            view.showValidationWarning("Select a preset to export.");
+            return;
+        }
+
+        PresetResolver.ResolvedPreset row = view.rowAt(selectedRow);
+        File file = view.choosePresetFileToExport(row.getPreset().getName());
+        if (file == null) {
+            return;
+        }
+
+        try {
+            presetService.exportPreset(row.getPreset(), file.toPath());
+        } catch (IllegalStateException exception) {
+            view.showValidationWarning(exception.getMessage());
+        }
+    }
+
+    @Override
     public void onRestoreDefaults() {
         presetService.clearAllSettings();
         presetService.savePreset(DefaultPresetFactory.createBuiltInPreset());
@@ -203,7 +255,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         int selectedRow = view.selectedRow();
         if (selectedRow < 0) {
-            view.setPresetActions(false, false, false, false, false);
+            view.setPresetActions(false, false, false, false, false, false);
             clearEditor();
             view.setEditorEnabled(false);
             return;
@@ -212,6 +264,7 @@ final class SettingsPresenter implements SettingsView.Listener {
         editingRow = selectedRow;
 
         view.setPresetActions(
+                true,
                 true,
                 true,
                 true,

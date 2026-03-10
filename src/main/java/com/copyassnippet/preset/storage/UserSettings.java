@@ -19,6 +19,8 @@ public final class UserSettings {
     private static final String BUILT_IN_DEFAULT_REMOVED_KEY = "builtin.default.removed";
     private static final TypeReference<List<StoredPreset>> PRESET_LIST_TYPE = new TypeReference<>() {
     };
+    private static final TypeReference<ExportedPresetFile> PRESET_FILE_TYPE = new TypeReference<>() {
+    };
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
 
@@ -121,8 +123,42 @@ public final class UserSettings {
         preferences.deleteString(BUILT_IN_DEFAULT_REMOVED_KEY);
     }
 
+    public static String writePresetFile(Preset preset) {
+        ExportedPresetFile exportedPresetFile = new ExportedPresetFile();
+        exportedPresetFile.version = SCHEMA_VERSION;
+        exportedPresetFile.preset = StoredPreset.fromPreset(preset, false);
+        return PresetSerializationHelper.writeJson(exportedPresetFile);
+    }
+
+    public static Preset readPresetFile(String rawJson) {
+        ExportedPresetFile exportedPresetFile = PresetSerializationHelper.readJson(rawJson, PRESET_FILE_TYPE);
+        if (exportedPresetFile == null) {
+            throw new IllegalStateException("Preset file is empty.");
+        }
+        if (exportedPresetFile.version == null) {
+            throw new IllegalStateException("Preset file is missing a version.");
+        }
+        if (exportedPresetFile.version != SCHEMA_VERSION) {
+            throw new IllegalStateException("Unsupported preset file version: " + exportedPresetFile.version + ".");
+        }
+        if (exportedPresetFile.preset == null) {
+            throw new IllegalStateException("Preset file is missing preset data.");
+        }
+
+        Preset preset = exportedPresetFile.preset.toImportedPreset();
+        if (preset == null) {
+            throw new IllegalStateException("Preset file is missing a preset name.");
+        }
+        return preset;
+    }
+
     private static void markCurrent(Preferences preferences) {
         preferences.setInteger(PresetStorageSchema.USER_SETTINGS_SCHEMA_VERSION_KEY, SCHEMA_VERSION);
+    }
+
+    private static final class ExportedPresetFile {
+        public Integer version;
+        public StoredPreset preset;
     }
 
     private static final class StoredPreset {
@@ -137,8 +173,12 @@ public final class UserSettings {
         public boolean enabled = true;
 
         private static StoredPreset fromPreset(Preset preset) {
+            return fromPreset(preset, true);
+        }
+
+        private static StoredPreset fromPreset(Preset preset, boolean includeId) {
             StoredPreset storedPreset = new StoredPreset();
-            storedPreset.id = preset.getId();
+            storedPreset.id = includeId ? preset.getId() : null;
             storedPreset.name = preset.getName();
             storedPreset.headerRegexes = PresetSerializationHelper.copyWithoutNulls(preset.getHeaderRegexes());
             storedPreset.cookieRegexes = PresetSerializationHelper.copyWithoutNulls(preset.getCookieRegexes());
@@ -158,6 +198,24 @@ public final class UserSettings {
             return new Preset(
                     id,
                     name,
+                    PresetSerializationHelper.copyWithoutNulls(headerRegexes),
+                    PresetSerializationHelper.copyWithoutNulls(cookieRegexes),
+                    PresetSerializationHelper.copyWithoutNulls(paramRegexes),
+                    StoredRedactionRule.toRules(redactionRules),
+                    replacementString != null ? replacementString : DefaultPresetFactory.DEFAULT_REPLACEMENT,
+                    template != null ? template : DefaultPresetFactory.DEFAULT_TEMPLATE,
+                    enabled
+            );
+        }
+
+        private Preset toImportedPreset() {
+            if (name == null || name.trim().isEmpty()) {
+                return null;
+            }
+
+            return new Preset(
+                    null,
+                    name.trim(),
                     PresetSerializationHelper.copyWithoutNulls(headerRegexes),
                     PresetSerializationHelper.copyWithoutNulls(cookieRegexes),
                     PresetSerializationHelper.copyWithoutNulls(paramRegexes),

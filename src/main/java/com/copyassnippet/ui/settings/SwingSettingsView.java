@@ -2,14 +2,18 @@ package com.copyassnippet.ui.settings;
 
 import com.copyassnippet.hotkey.HotkeySettingsState;
 import com.copyassnippet.preset.form.PresetFormData;
+import com.copyassnippet.preset.service.PresetApplicationService;
 import com.copyassnippet.preset.service.PresetResolver;
 
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.io.File;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -29,6 +33,7 @@ final class SwingSettingsView implements SettingsView {
     private final JButton deleteButton;
     private final JButton duplicateButton;
     private final JButton editButton;
+    private final JButton exportButton;
     private final JButton moveUpButton;
     private final JButton moveDownButton;
     private final JButton saveButton;
@@ -74,6 +79,8 @@ final class SwingSettingsView implements SettingsView {
         tableScroll.setPreferredSize(new Dimension(400, 150));
 
         JButton addButton = new JButton("Add");
+        JButton loadButton = new JButton("Load ...");
+        exportButton = new JButton("Export ...");
         deleteButton = new JButton("Remove");
         duplicateButton = new JButton("Duplicate");
         editButton = new JButton("Edit");
@@ -81,6 +88,8 @@ final class SwingSettingsView implements SettingsView {
         moveDownButton = new JButton("Down");
         JButton restoreDefaultsButton = new JButton("Restore defaults");
 
+        loadButton.addActionListener(e -> notifyLoadPresets());
+        exportButton.addActionListener(e -> notifyExportPreset());
         addButton.addActionListener(e -> notifyAdd());
         deleteButton.addActionListener(e -> notifyDelete());
         duplicateButton.addActionListener(e -> notifyDuplicate());
@@ -91,7 +100,7 @@ final class SwingSettingsView implements SettingsView {
 
         JPanel buttonBar = new JPanel();
         buttonBar.setLayout(new BoxLayout(buttonBar, BoxLayout.Y_AXIS));
-        for (JButton button : new JButton[]{addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton}) {
+        for (JButton button : new JButton[]{loadButton, exportButton, addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton}) {
             button.setAlignmentX(Component.LEFT_ALIGNMENT);
             button.setMaximumSize(new Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
             buttonBar.add(button);
@@ -178,7 +187,7 @@ final class SwingSettingsView implements SettingsView {
             }
         });
 
-        setPresetActions(false, false, false, false, false);
+        setPresetActions(false, false, false, false, false, false);
         setEditorEnabled(false);
     }
 
@@ -221,10 +230,11 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
-    public void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean moveUpEnabled, boolean moveDownEnabled) {
+    public void setPresetActions(boolean deleteEnabled, boolean duplicateEnabled, boolean editEnabled, boolean exportEnabled, boolean moveUpEnabled, boolean moveDownEnabled) {
         deleteButton.setEnabled(deleteEnabled);
         duplicateButton.setEnabled(duplicateEnabled);
         editButton.setEnabled(editEnabled);
+        exportButton.setEnabled(exportEnabled);
         moveUpButton.setEnabled(moveUpEnabled);
         moveDownButton.setEnabled(moveDownEnabled);
     }
@@ -284,6 +294,88 @@ final class SwingSettingsView implements SettingsView {
     }
 
     @Override
+    public List<File> choosePresetFilesToLoad() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Load presets");
+        chooser.setMultiSelectionEnabled(true);
+        chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
+        int selection = chooser.showOpenDialog(panel);
+        if (selection != JFileChooser.APPROVE_OPTION) {
+            return List.of();
+        }
+
+        File[] files = chooser.getSelectedFiles();
+        if (files == null || files.length == 0) {
+            File singleFile = chooser.getSelectedFile();
+            return singleFile == null ? List.of() : List.of(singleFile);
+        }
+        return List.of(files);
+    }
+
+    @Override
+    public File choosePresetFileToExport(String suggestedFileName) {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export preset");
+        chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
+        chooser.setSelectedFile(new File(defaultExportFileName(suggestedFileName)));
+        int selection = chooser.showSaveDialog(panel);
+        if (selection != JFileChooser.APPROVE_OPTION) {
+            return null;
+        }
+
+        File selectedFile = appendJsonExtension(chooser.getSelectedFile());
+        if (selectedFile.exists()) {
+            int overwrite = JOptionPane.showConfirmDialog(
+                    panel,
+                    "Overwrite \"" + selectedFile.getName() + "\"?",
+                    "Confirm overwrite",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (overwrite != JOptionPane.YES_OPTION) {
+                return null;
+            }
+        }
+
+        return selectedFile;
+    }
+
+    @Override
+    public List<PresetApplicationService.ImportPlanRow> resolveImportConflicts(List<PresetApplicationService.ImportPlanRow> rows) {
+        JTable table = new JTable(new ImportPlanTableModel(rows));
+        table.setFillsViewportHeight(true);
+        table.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+        table.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            protected void setValue(Object value) {
+                setText(value instanceof PresetApplicationService.ImportAction
+                        ? value.toString()
+                        : "");
+            }
+        });
+        JComboBox<PresetApplicationService.ImportAction> comboBox = new JComboBox<>(
+                new PresetApplicationService.ImportAction[]{
+                        PresetApplicationService.ImportAction.REPLACE,
+                        PresetApplicationService.ImportAction.KEEP_BOTH
+                }
+        );
+        table.getColumnModel().getColumn(3).setCellEditor(new DefaultCellEditor(comboBox));
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(700, Math.min(220, table.getRowHeight() * (rows.size() + 1) + 24)));
+
+        int choice = JOptionPane.showConfirmDialog(
+                panel,
+                scrollPane,
+                "Resolve preset name conflicts",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+        if (table.isEditing()) {
+            table.getCellEditor().stopCellEditing();
+        }
+        return choice == JOptionPane.OK_OPTION ? rows : null;
+    }
+
+    @Override
     public HotkeySettingsState getHotkeyState() {
         return new HotkeySettingsState(hotkeyEnabledCheckbox.isSelected(), hotkeyField.getText().trim());
     }
@@ -337,6 +429,18 @@ final class SwingSettingsView implements SettingsView {
     private void notifyMoveDown() {
         if (listener != null) {
             listener.onMoveDown();
+        }
+    }
+
+    private void notifyLoadPresets() {
+        if (listener != null) {
+            listener.onLoadPresets();
+        }
+    }
+
+    private void notifyExportPreset() {
+        if (listener != null) {
+            listener.onExportPreset();
         }
     }
 
@@ -464,8 +568,93 @@ final class SwingSettingsView implements SettingsView {
         return label;
     }
 
+    private static File appendJsonExtension(File file) {
+        if (file == null || file.getName().toLowerCase().endsWith(".json")) {
+            return file;
+        }
+        return new File(file.getParentFile(), file.getName() + ".json");
+    }
+
+    private static String defaultExportFileName(String presetName) {
+        String sanitized = presetName == null ? "" : presetName.trim().replaceAll("[^A-Za-z0-9._-]+", "-");
+        if (sanitized.isEmpty()) {
+            sanitized = "preset";
+        }
+        return sanitized + ".json";
+    }
+
     private interface EnabledToggleListener {
         void onEnabledToggled(int rowIndex, boolean enabled);
+    }
+
+    private static class ImportPlanTableModel extends AbstractTableModel {
+        private final List<PresetApplicationService.ImportPlanRow> rows;
+
+        ImportPlanTableModel(List<PresetApplicationService.ImportPlanRow> rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public int getRowCount() {
+            return rows.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return 4;
+        }
+
+        @Override
+        public String getColumnName(int column) {
+            switch (column) {
+                case 0:
+                    return "File";
+                case 1:
+                    return "Preset";
+                case 2:
+                    return "Conflicts with";
+                case 3:
+                    return "Action";
+                default:
+                    return "";
+            }
+        }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            return columnIndex == 3 ? PresetApplicationService.ImportAction.class : String.class;
+        }
+
+        @Override
+        public boolean isCellEditable(int rowIndex, int columnIndex) {
+            return columnIndex == 3 && rows.get(rowIndex).hasNameConflict();
+        }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            PresetApplicationService.ImportPlanRow row = rows.get(rowIndex);
+            switch (columnIndex) {
+                case 0:
+                    return row.getSourceName();
+                case 1:
+                    return row.getPreset().getName();
+                case 2:
+                    return row.getConflictingPresetName() != null ? row.getConflictingPresetName() : "";
+                case 3:
+                    return row.getAction();
+                default:
+                    return null;
+            }
+        }
+
+        @Override
+        public void setValueAt(Object value, int rowIndex, int columnIndex) {
+            if (columnIndex != 3 || !(value instanceof PresetApplicationService.ImportAction)) {
+                return;
+            }
+            rows.get(rowIndex).setAction((PresetApplicationService.ImportAction) value);
+            fireTableCellUpdated(rowIndex, columnIndex);
+        }
     }
 
     private static class PresetTableModel extends AbstractTableModel {
