@@ -1,7 +1,6 @@
 package com.copyassnippet.preset.form;
 
 import com.copyassnippet.preset.model.Preset;
-import com.copyassnippet.preset.model.PresetScope;
 import com.copyassnippet.preset.model.RedactionRule;
 import com.copyassnippet.preset.service.DefaultPresetFactory;
 
@@ -11,7 +10,6 @@ import java.util.List;
 public final class PresetFormData {
     private final String presetId;
     private final String name;
-    private final PresetScope scope;
     private final List<String> headerRegexes;
     private final List<String> cookieRegexes;
     private final List<String> paramRegexes;
@@ -22,7 +20,6 @@ public final class PresetFormData {
     public PresetFormData(
             String presetId,
             String name,
-            PresetScope scope,
             List<String> headerRegexes,
             List<String> cookieRegexes,
             List<String> paramRegexes,
@@ -31,7 +28,6 @@ public final class PresetFormData {
             String template) {
         this.presetId = presetId;
         this.name = name != null ? name : "";
-        this.scope = scope != null ? scope : PresetScope.USER;
         this.headerRegexes = new ArrayList<>(headerRegexes);
         this.cookieRegexes = new ArrayList<>(cookieRegexes);
         this.paramRegexes = new ArrayList<>(paramRegexes);
@@ -46,10 +42,6 @@ public final class PresetFormData {
 
     public String getName() {
         return name;
-    }
-
-    public PresetScope getScope() {
-        return scope;
     }
 
     public List<String> getHeaderRegexes() {
@@ -80,7 +72,6 @@ public final class PresetFormData {
         return new PresetFormData(
                 presetId,
                 newName,
-                scope,
                 headerRegexes,
                 cookieRegexes,
                 paramRegexes,
@@ -94,7 +85,6 @@ public final class PresetFormData {
         return new PresetFormData(
                 null,
                 name,
-                scope,
                 headerRegexes,
                 cookieRegexes,
                 paramRegexes,
@@ -105,7 +95,7 @@ public final class PresetFormData {
     }
 
     public static PresetFormData forNewPreset() {
-        return fromPreset(DefaultPresetFactory.createBuiltInPreset(), PresetScope.USER)
+        return fromPreset(DefaultPresetFactory.createBuiltInPreset())
                 .withName("")
                 .withoutPresetId();
     }
@@ -114,7 +104,6 @@ public final class PresetFormData {
         return new PresetFormData(
                 null,
                 "",
-                PresetScope.USER,
                 List.of(),
                 List.of(),
                 List.of(),
@@ -124,11 +113,10 @@ public final class PresetFormData {
         );
     }
 
-    public static PresetFormData fromPreset(Preset preset, PresetScope scope) {
+    public static PresetFormData fromPreset(Preset preset) {
         return new PresetFormData(
                 preset.getId(),
                 preset.getName(),
-                scope,
                 preset.getHeaderRegexes(),
                 preset.getCookieRegexes(),
                 preset.getParamRegexes(),

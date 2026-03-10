@@ -493,7 +493,7 @@ final class SwingSettingsView implements SettingsView {
 
         @Override
         public int getColumnCount() {
-            return 3;
+            return 2;
         }
 
         @Override
@@ -503,8 +503,6 @@ final class SwingSettingsView implements SettingsView {
                     return "Show";
                 case 1:
                     return "Name";
-                case 2:
-                    return "Scope";
                 default:
                     return "";
             }
@@ -528,8 +526,6 @@ final class SwingSettingsView implements SettingsView {
                     return row.getPreset().isEnabled();
                 case 1:
                     return row.getPreset().getName();
-                case 2:
-                    return row.getScope().displayName();
                 default:
                     return null;
             }

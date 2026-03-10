@@ -4,7 +4,6 @@ import com.copyassnippet.hotkey.HotkeySettingsService;
 import com.copyassnippet.hotkey.HotkeySettingsState;
 import com.copyassnippet.preset.form.PresetFormData;
 import com.copyassnippet.preset.model.Preset;
-import com.copyassnippet.preset.model.PresetScope;
 import com.copyassnippet.preset.service.DefaultPresetFactory;
 import com.copyassnippet.preset.service.PresetApplicationService;
 import com.copyassnippet.preset.service.PresetResolver;
@@ -59,7 +58,7 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        presetService.removePreset(row.getPreset().getId(), row.getScope());
+        presetService.removePreset(row.getPreset().getId());
         onCancel();
         reloadTable();
     }
@@ -73,14 +72,11 @@ final class SettingsPresenter implements SettingsView.Listener {
         }
 
         PresetResolver.ResolvedPreset row = view.rowAt(selectedRow);
-        PresetScope duplicateScope = row.getScope() == PresetScope.PROJECT
-                ? PresetScope.USER
-                : row.getScope().toEditableScope();
         addingNew = true;
         editingRow = -1;
         try {
             view.setEditorFormData(
-                    PresetFormData.fromPreset(row.getPreset(), duplicateScope)
+                    PresetFormData.fromPreset(row.getPreset())
                             .withName(row.getPreset().getName() + " (copy)")
                             .withoutPresetId()
             );
@@ -104,7 +100,7 @@ final class SettingsPresenter implements SettingsView.Listener {
         addingNew = false;
         editingRow = selectedRow;
         try {
-            view.setEditorFormData(PresetFormData.fromPreset(row.getPreset(), row.getScope()));
+            view.setEditorFormData(PresetFormData.fromPreset(row.getPreset()));
             view.setEditorEnabled(true);
             view.focusEditorNameField();
         } catch (RuntimeException exception) {
@@ -138,7 +134,7 @@ final class SettingsPresenter implements SettingsView.Listener {
     @Override
     public void onRestoreDefaults() {
         presetService.clearAllSettings();
-        presetService.savePreset(DefaultPresetFactory.createBuiltInPreset(), PresetScope.USER);
+        presetService.savePreset(DefaultPresetFactory.createBuiltInPreset());
         hotkeySettingsService.applyFromStore();
         view.setHotkeyState(hotkeySettingsService.currentSettings());
         onCancel();
@@ -160,7 +156,6 @@ final class SettingsPresenter implements SettingsView.Listener {
             return;
         }
 
-        PresetScope scope = effectiveFormData.getScope();
         boolean enabled = true;
         if (editingRow >= 0) {
             enabled = view.rowAt(editingRow).getPreset().isEnabled();
@@ -168,15 +163,7 @@ final class SettingsPresenter implements SettingsView.Listener {
 
         Preset preset = effectiveFormData.toPreset(enabled);
         String savedPresetId = preset.getId();
-
-        if (editingRow >= 0) {
-            PresetResolver.ResolvedPreset oldRow = view.rowAt(editingRow);
-            if (oldRow.getScope() != scope) {
-                presetService.removePreset(oldRow.getPreset().getId(), oldRow.getScope());
-            }
-        }
-
-        presetService.savePreset(preset, scope);
+        presetService.savePreset(preset);
         addingNew = false;
         editingRow = -1;
         view.setEditorEnabled(false);

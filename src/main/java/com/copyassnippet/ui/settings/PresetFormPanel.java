@@ -1,7 +1,6 @@
 package com.copyassnippet.ui.settings;
 
 import com.copyassnippet.preset.form.PresetFormData;
-import com.copyassnippet.preset.model.PresetScope;
 import com.copyassnippet.preset.model.RedactionRule;
 import com.copyassnippet.preset.service.DefaultPresetFactory;
 
@@ -13,7 +12,6 @@ import java.util.List;
 class PresetFormPanel extends JPanel {
 
     private final JTextField nameField;
-    private final JComboBox<PresetScope> scopeCombo;
     private final JTextArea headerRegexesArea;
     private final JTextArea cookieRegexesArea;
     private final JTextArea paramRegexesArea;
@@ -30,7 +28,6 @@ class PresetFormPanel extends JPanel {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 
         nameField = new JTextField();
-        scopeCombo = new JComboBox<>(PresetScope.EDITABLE_VALUES);
         Font textAreaFont = UIManager.getFont("TextArea.font");
         Font textFieldFont = UIManager.getFont("TextField.font");
 
@@ -105,11 +102,6 @@ class PresetFormPanel extends JPanel {
         nameRow.add(nameField, BorderLayout.CENTER);
         nameRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
-        JPanel scopeRow = new JPanel(new BorderLayout(5, 0));
-        scopeRow.add(new JLabel("Scope:"), BorderLayout.WEST);
-        scopeRow.add(scopeCombo, BorderLayout.CENTER);
-        scopeRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
-
         JPanel replacementRow = new JPanel(new BorderLayout(5, 0));
         replacementRow.add(new JLabel("Replacement string:"), BorderLayout.WEST);
         replacementRow.add(replacementStringField, BorderLayout.CENTER);
@@ -121,7 +113,6 @@ class PresetFormPanel extends JPanel {
         regexColumns.add(labeledScroll("Param regexes (one per line):", paramRegexesArea));
 
         nameRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        scopeRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         regexColumns.setAlignmentX(Component.LEFT_ALIGNMENT);
         replacementRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         rulePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -134,8 +125,6 @@ class PresetFormPanel extends JPanel {
 
         add(nameRow);
         add(Box.createVerticalStrut(5));
-        add(scopeRow);
-        add(Box.createVerticalStrut(10));
         add(regexColumns);
         add(Box.createVerticalStrut(10));
         add(replacementRow);
@@ -150,7 +139,6 @@ class PresetFormPanel extends JPanel {
     void setFormData(PresetFormData formData) {
         currentPresetId = formData.getPresetId();
         nameField.setText(formData.getName());
-        scopeCombo.setSelectedItem(formData.getScope().toEditableScope());
         headerRegexesArea.setText(joinLines(formData.getHeaderRegexes()));
         cookieRegexesArea.setText(joinLines(formData.getCookieRegexes()));
         paramRegexesArea.setText(joinLines(formData.getParamRegexes()));
@@ -167,7 +155,6 @@ class PresetFormPanel extends JPanel {
         return new PresetFormData(
                 currentPresetId,
                 nameField.getText(),
-                (PresetScope) scopeCombo.getSelectedItem(),
                 parseLines(headerRegexesArea.getText()),
                 parseLines(cookieRegexesArea.getText()),
                 parseLines(paramRegexesArea.getText()),
@@ -180,7 +167,6 @@ class PresetFormPanel extends JPanel {
     void setFormEnabled(boolean enabled) {
         formEnabled = enabled;
         nameField.setEnabled(enabled);
-        scopeCombo.setEnabled(enabled);
         headerRegexesArea.setEnabled(enabled);
         cookieRegexesArea.setEnabled(enabled);
         paramRegexesArea.setEnabled(enabled);

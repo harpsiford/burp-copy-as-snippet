@@ -1,7 +1,6 @@
 package com.copyassnippet.preset.service;
 
 import com.copyassnippet.preset.model.Preset;
-import com.copyassnippet.preset.model.PresetScope;
 import com.copyassnippet.preset.storage.PresetStore;
 
 import java.util.ArrayList;
@@ -18,46 +17,23 @@ public final class PresetApplicationService {
         return presetStore.getResolvedPresetEntries();
     }
 
-    public void savePreset(Preset preset, PresetScope scope) {
+    public void savePreset(Preset preset) {
         if (Preset.BUILT_IN_ID.equals(preset.getId())) {
             presetStore.setBuiltInDefaultRemoved(false);
         }
-        switch (scope.toEditableScope()) {
-            case PROJECT:
-                List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
-                projectList.removeIf(existing -> existing.getId().equals(preset.getId()));
-                projectList.add(preset);
-                presetStore.setProjectPresets(projectList);
-                break;
-            case USER:
-                List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
-                userList.removeIf(existing -> existing.getId().equals(preset.getId()));
-                userList.add(preset);
-                presetStore.setUserPresets(userList);
-                break;
-            default:
-                throw new IllegalStateException("Unexpected editable scope: " + scope);
-        }
+        List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
+        userList.removeIf(existing -> existing.getId().equals(preset.getId()));
+        userList.add(preset);
+        presetStore.setUserPresets(userList);
     }
 
-    public void removePreset(String presetId, PresetScope scope) {
+    public void removePreset(String presetId) {
         if (Preset.BUILT_IN_ID.equals(presetId)) {
             presetStore.setBuiltInDefaultRemoved(true);
         }
-        switch (scope.toEditableScope()) {
-            case PROJECT:
-                List<Preset> projectList = new ArrayList<>(presetStore.getProjectPresets());
-                projectList.removeIf(p -> p.getId().equals(presetId));
-                presetStore.setProjectPresets(projectList);
-                break;
-            case USER:
-                List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
-                userList.removeIf(p -> p.getId().equals(presetId));
-                presetStore.setUserPresets(userList);
-                break;
-            default:
-                throw new IllegalStateException("Unexpected editable scope: " + scope);
-        }
+        List<Preset> userList = new ArrayList<>(presetStore.getUserPresets());
+        userList.removeIf(p -> p.getId().equals(presetId));
+        presetStore.setUserPresets(userList);
     }
 
     public void clearAllSettings() {
@@ -87,10 +63,10 @@ public final class PresetApplicationService {
                     preset.getTemplate(),
                     preset.isEnabled()
             );
-            savePreset(userPreset, PresetScope.USER);
+            savePreset(userPreset);
             return;
         }
 
-        savePreset(preset, row.getScope());
+        savePreset(preset);
     }
 }

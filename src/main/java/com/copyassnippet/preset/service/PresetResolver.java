@@ -28,28 +28,24 @@ public class PresetResolver {
         }
     }
 
-    public List<ResolvedPreset> resolve(List<Preset> userPresets, List<Preset> projectPresets, List<String> order, boolean includeBuiltIn) {
+    public List<ResolvedPreset> resolve(List<Preset> userPresets, List<String> order, boolean includeBuiltIn) {
         Map<String, ResolvedPreset> merged = new LinkedHashMap<>();
 
         if (includeBuiltIn) {
             Preset builtIn = DefaultPresetFactory.createBuiltInPreset();
-            merged.put(builtIn.getName(), new ResolvedPreset(builtIn, PresetScope.USER));
+            merged.put(builtIn.getName(), new ResolvedPreset(builtIn, PresetScope.BUILT_IN));
         }
 
         for (Preset preset : userPresets) {
             merged.put(preset.getName(), new ResolvedPreset(preset, PresetScope.USER));
         }
 
-        for (Preset preset : projectPresets) {
-            merged.put(preset.getName(), new ResolvedPreset(preset, PresetScope.PROJECT));
-        }
-
         return applyOrder(new ArrayList<>(merged.values()), order);
     }
 
-    public List<Preset> resolvePresets(List<Preset> userPresets, List<Preset> projectPresets, List<String> order, boolean includeBuiltIn) {
+    public List<Preset> resolvePresets(List<Preset> userPresets, List<String> order, boolean includeBuiltIn) {
         List<Preset> result = new ArrayList<>();
-        for (ResolvedPreset resolvedPreset : resolve(userPresets, projectPresets, order, includeBuiltIn)) {
+        for (ResolvedPreset resolvedPreset : resolve(userPresets, order, includeBuiltIn)) {
             result.add(resolvedPreset.getPreset());
         }
         return result;

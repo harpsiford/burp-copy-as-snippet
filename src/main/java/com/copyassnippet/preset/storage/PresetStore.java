@@ -1,11 +1,9 @@
 package com.copyassnippet.preset.storage;
 
 import burp.api.montoya.MontoyaApi;
-import burp.api.montoya.persistence.PersistedObject;
 import burp.api.montoya.persistence.Preferences;
 import com.copyassnippet.preset.model.Preset;
 import com.copyassnippet.preset.service.PresetResolver;
-import com.copyassnippet.preset.storage.migrations.PresetStoreMigrator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,10 +12,8 @@ public class PresetStore {
     public static final String DEFAULT_HOTKEY = "Ctrl+Shift+C";
 
     private final Preferences preferences;
-    private final PersistedObject extensionData;
     private final PresetResolver presetResolver;
     private List<Preset> cachedUserPresets;
-    private List<Preset> cachedProjectPresets;
     private List<String> cachedPresetOrder;
     private List<Preset> cachedResolvedPresets;
     private Boolean cachedBuiltInDefaultRemoved;
@@ -28,9 +24,7 @@ public class PresetStore {
 
     PresetStore(MontoyaApi api, PresetResolver presetResolver) {
         this.preferences = api.persistence().preferences();
-        this.extensionData = api.persistence().extensionData();
         this.presetResolver = presetResolver;
-        PresetStoreMigrator.migrate(preferences, extensionData);
     }
 
     public List<Preset> getUserPresets() {
@@ -46,36 +40,21 @@ public class PresetStore {
         invalidateResolvedPresetCache();
     }
 
-    public List<Preset> getProjectPresets() {
-        if (cachedProjectPresets == null) {
-            cachedProjectPresets = ProjectSettings.readPresets(extensionData);
-        }
-        return copyPresets(cachedProjectPresets);
-    }
-
-    public void setProjectPresets(List<Preset> presets) {
-        ProjectSettings.writePresets(extensionData, presets);
-        cachedProjectPresets = copyPresets(presets);
-        invalidateResolvedPresetCache();
-    }
-
     public List<Preset> getResolvedPresets() {
         if (cachedResolvedPresets == null) {
             List<Preset> userPresets = getUserPresets();
-            List<Preset> projectPresets = getProjectPresets();
             List<String> order = getPresetOrder();
-            boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
-            cachedResolvedPresets = presetResolver.resolvePresets(userPresets, projectPresets, order, includeBuiltIn);
+            boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets);
+            cachedResolvedPresets = presetResolver.resolvePresets(userPresets, order, includeBuiltIn);
         }
         return copyPresets(cachedResolvedPresets);
     }
 
     public List<PresetResolver.ResolvedPreset> getResolvedPresetEntries() {
         List<Preset> userPresets = getUserPresets();
-        List<Preset> projectPresets = getProjectPresets();
         List<String> order = getPresetOrder();
-        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets, projectPresets);
-        return presetResolver.resolve(userPresets, projectPresets, order, includeBuiltIn);
+        boolean includeBuiltIn = shouldIncludeBuiltInDefault(userPresets);
+        return presetResolver.resolve(userPresets, order, includeBuiltIn);
     }
 
     public List<String> getPresetOrder() {
@@ -139,19 +118,17 @@ public class PresetStore {
     public void resetAllSettings() {
         preferences.deleteInteger(PresetStorageSchema.USER_SETTINGS_SCHEMA_VERSION_KEY);
         UserSettings.clear(preferences);
-        ProjectSettings.clear(extensionData);
         cachedUserPresets = List.of();
-        cachedProjectPresets = List.of();
         cachedPresetOrder = List.of();
         cachedBuiltInDefaultRemoved = false;
         invalidateResolvedPresetCache();
     }
 
-    private boolean shouldIncludeBuiltInDefault(List<Preset> userPresets, List<Preset> projectPresets) {
+    private boolean shouldIncludeBuiltInDefault(List<Preset> userPresets) {
         if (isBuiltInDefaultRemoved()) {
             return false;
         }
-        return !containsBuiltInDefaultId(userPresets) && !containsBuiltInDefaultId(projectPresets);
+        return !containsBuiltInDefaultId(userPresets);
     }
 
     private static boolean containsBuiltInDefaultId(List<Preset> presets) {

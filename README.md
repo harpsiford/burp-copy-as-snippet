@@ -8,9 +8,9 @@ Are you tired of removing junk headers and cookies from the PoCs you copy from B
 - Junk headers/cookies are automatically removed from the request/response
 - HTTP parameter removal is also supported (GET, POST forms, JSON)
 - JWTs and sensitive cookies are automatically replaced with a string of your choosing (`REDACTED` by default)
-- Supports user/project-level presets. If the default preset doesn't scrub all junk headers, you can always create your own!
+- Supports multiple presets. All presets are shared between projects. If the default preset doesn't scrub all junk headers, you can always create your own!
 
-**Note**: The default junk header/cookie list is not meant to be universal. For example, you can completely ignore cache-related headers in one PoC, but in another you won't be able to ignore them. Create and use presets, for yourself, and feel free to suggest changes via GitHub issues!
+**Note**: The default junk header/cookie list is not meant to be universal. For example, you can completely ignore cache-related headers in one PoC, but not in another. Create, use and share presets, and feel free to suggest changes to the default one via GitHub issues!
 
 ![Settings view](readme/settings-view.png)
 
