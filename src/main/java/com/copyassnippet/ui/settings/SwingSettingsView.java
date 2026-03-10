@@ -27,11 +27,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.lang.reflect.InvocationTargetException;
 
 final class SwingSettingsView implements SettingsView {
     private Listener listener;
     private final Consumer<Component> themeApplier;
+    private final Function<Component, Window> windowForComponent;
+    private final Supplier<Frame> suiteFrameSupplier;
 
     private final JPanel panel;
     private final PresetTableModel tableModel;
@@ -54,8 +58,14 @@ final class SwingSettingsView implements SettingsView {
     private final JTextField hotkeyField;
     private final JButton hotkeyChangeButton;
 
-    SwingSettingsView(Consumer<Component> themeApplier) {
+    SwingSettingsView(
+            Consumer<Component> themeApplier,
+            Function<Component, Window> windowForComponent,
+            Supplier<Frame> suiteFrameSupplier
+    ) {
         this.themeApplier = themeApplier;
+        this.windowForComponent = windowForComponent;
+        this.suiteFrameSupplier = suiteFrameSupplier;
         tableModel = new PresetTableModel();
         tableModel.setEnabledToggleListener(this::notifyPresetEnabledToggled);
 
@@ -288,7 +298,7 @@ final class SwingSettingsView implements SettingsView {
                 JDialog dialog = ensureEditorDialog();
                 if (!editorDialog.isVisible()) {
                     dialog.pack();
-                    dialog.setLocationRelativeTo(panel);
+                    dialog.setLocationRelativeTo(dialogOwner());
                     dialog.setVisible(true);
                 } else {
                     dialog.toFront();
@@ -310,13 +320,12 @@ final class SwingSettingsView implements SettingsView {
 
     @Override
     public void showValidationWarning(String message) {
-        Component parent = editorDialog != null && editorDialog.isVisible() ? editorDialog : panel;
-        JOptionPane.showMessageDialog(parent, message, "Validation", JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(dialogParentComponent(), message, "Validation", JOptionPane.WARNING_MESSAGE);
     }
 
     @Override
     public boolean confirmDelete(String presetName) {
-        int confirm = JOptionPane.showConfirmDialog(panel,
+        int confirm = JOptionPane.showConfirmDialog(dialogParentComponent(),
                 "Delete preset \"" + presetName + "\"?",
                 "Confirm delete", JOptionPane.YES_NO_OPTION);
         return confirm == JOptionPane.YES_OPTION;
@@ -328,7 +337,7 @@ final class SwingSettingsView implements SettingsView {
         chooser.setDialogTitle("Load presets");
         chooser.setMultiSelectionEnabled(true);
         chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
-        int selection = chooser.showOpenDialog(panel);
+        int selection = chooser.showOpenDialog(dialogParentComponent());
         if (selection != JFileChooser.APPROVE_OPTION) {
             return List.of();
         }
@@ -347,7 +356,7 @@ final class SwingSettingsView implements SettingsView {
         chooser.setDialogTitle("Export preset");
         chooser.setFileFilter(new FileNameExtensionFilter("JSON files", "json"));
         chooser.setSelectedFile(new File(defaultExportFileName(suggestedFileName)));
-        int selection = chooser.showSaveDialog(panel);
+        int selection = chooser.showSaveDialog(dialogParentComponent());
         if (selection != JFileChooser.APPROVE_OPTION) {
             return null;
         }
@@ -355,7 +364,7 @@ final class SwingSettingsView implements SettingsView {
         File selectedFile = appendJsonExtension(chooser.getSelectedFile());
         if (selectedFile.exists()) {
             int overwrite = JOptionPane.showConfirmDialog(
-                    panel,
+                    dialogParentComponent(),
                     "Overwrite \"" + selectedFile.getName() + "\"?",
                     "Confirm overwrite",
                     JOptionPane.YES_NO_OPTION
@@ -392,7 +401,7 @@ final class SwingSettingsView implements SettingsView {
         scrollPane.setPreferredSize(new Dimension(700, Math.min(220, table.getRowHeight() * (rows.size() + 1) + 24)));
 
         int choice = JOptionPane.showConfirmDialog(
-                panel,
+                dialogParentComponent(),
                 scrollPane,
                 "Resolve preset name conflicts",
                 JOptionPane.OK_CANCEL_OPTION,
@@ -511,7 +520,7 @@ final class SwingSettingsView implements SettingsView {
     }
 
     private JDialog ensureEditorDialog() {
-        Window owner = SwingUtilities.getWindowAncestor(panel);
+        Window owner = dialogOwner();
         if (editorDialog == null || (owner != null && editorDialog.getOwner() != owner)) {
             if (editorDialog != null) {
                 editorDialog.dispose();
@@ -528,7 +537,7 @@ final class SwingSettingsView implements SettingsView {
         } else if (owner instanceof Frame) {
             dialog = new JDialog((Frame) owner, "Preset Editor", Dialog.ModalityType.DOCUMENT_MODAL);
         } else {
-            dialog = new JDialog((Frame) null, "Preset Editor", Dialog.ModalityType.APPLICATION_MODAL);
+            dialog = new JDialog(requireSuiteFrame(), "Preset Editor", Dialog.ModalityType.DOCUMENT_MODAL);
         }
         dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         dialog.setContentPane(editorPanel);
@@ -557,7 +566,7 @@ final class SwingSettingsView implements SettingsView {
     }
 
     private String captureHotkey(String currentHotkey) {
-        Window owner = SwingUtilities.getWindowAncestor(panel);
+        Window owner = dialogOwner();
         JDialog dialog = createHotkeyCaptureDialog(owner);
         hotkeyCaptureDialog = dialog;
 
@@ -605,7 +614,7 @@ final class SwingSettingsView implements SettingsView {
         dialog.getRootPane().setDefaultButton(applyButton);
         dialog.pack();
         dialog.setMinimumSize(dialog.getPreferredSize());
-        dialog.setLocationRelativeTo(panel);
+        dialog.setLocationRelativeTo(dialogOwner());
         applyTheme(dialog);
 
         applyButton.addActionListener(e -> {
@@ -667,7 +676,7 @@ final class SwingSettingsView implements SettingsView {
         } else if (owner instanceof Frame) {
             dialog = new JDialog((Frame) owner, "Record keyboard shortcut", Dialog.ModalityType.DOCUMENT_MODAL);
         } else {
-            dialog = new JDialog((Frame) null, "Record keyboard shortcut", Dialog.ModalityType.APPLICATION_MODAL);
+            dialog = new JDialog(requireSuiteFrame(), "Record keyboard shortcut", Dialog.ModalityType.DOCUMENT_MODAL);
         }
         dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         return dialog;
@@ -677,6 +686,35 @@ final class SwingSettingsView implements SettingsView {
         if (themeApplier != null) {
             themeApplier.accept(component);
         }
+    }
+
+    private Component dialogParentComponent() {
+        if (editorDialog != null && editorDialog.isVisible()) {
+            return editorDialog;
+        }
+        return dialogOwner();
+    }
+
+    private Window dialogOwner() {
+        if (windowForComponent != null) {
+            Window owner = windowForComponent.apply(panel);
+            if (owner != null) {
+                return owner;
+            }
+        }
+        return requireSuiteFrame();
+    }
+
+    private Frame requireSuiteFrame() {
+        if (suiteFrameSupplier == null) {
+            throw new IllegalStateException("Unable to resolve the Burp Suite frame.");
+        }
+
+        Frame suiteFrame = suiteFrameSupplier.get();
+        if (suiteFrame == null) {
+            throw new IllegalStateException("Unable to resolve the Burp Suite frame.");
+        }
+        return suiteFrame;
     }
 
     private void disposeDialogs() {

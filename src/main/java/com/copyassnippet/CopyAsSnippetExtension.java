@@ -25,7 +25,9 @@ public class CopyAsSnippetExtension implements BurpExtension
         MySettingsPanel settingsPanel = new MySettingsPanel(
                 presetStore,
                 hotkeyManager,
-                api.userInterface()::applyThemeToComponent
+                api.userInterface()::applyThemeToComponent,
+                api.userInterface().swingUtils()::windowForComponent,
+                api.userInterface().swingUtils()::suiteFrame
         );
 
         Registration contextMenuRegistration = api.userInterface().registerContextMenuItemsProvider(
