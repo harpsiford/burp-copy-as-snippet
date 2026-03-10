@@ -100,7 +100,7 @@ final class SwingSettingsView implements SettingsView {
 
         JPanel buttonBar = new JPanel();
         buttonBar.setLayout(new BoxLayout(buttonBar, BoxLayout.Y_AXIS));
-        for (JButton button : new JButton[]{loadButton, exportButton, addButton, editButton, deleteButton, duplicateButton, moveUpButton, moveDownButton}) {
+        for (JButton button : new JButton[]{addButton, editButton, deleteButton, duplicateButton, loadButton, exportButton, moveUpButton, moveDownButton}) {
             button.setAlignmentX(Component.LEFT_ALIGNMENT);
             button.setMaximumSize(new Dimension(Integer.MAX_VALUE, button.getPreferredSize().height));
             buttonBar.add(button);
