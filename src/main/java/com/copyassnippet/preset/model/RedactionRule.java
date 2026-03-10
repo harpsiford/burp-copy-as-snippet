@@ -58,23 +58,4 @@ public class RedactionRule {
     public void setType(Type type) { this.type = type; }
     public String getPattern() { return pattern; }
     public void setPattern(String pattern) { this.pattern = pattern; }
-
-    public String toSerializedString() {
-        return type.name() + ":" + pattern;
-    }
-
-    public static RedactionRule fromSerializedString(String s) {
-        if (s == null || s.isBlank()) return null;
-        int colon = s.indexOf(':');
-        if (colon < 0) return null;
-        String typePart = s.substring(0, colon).trim();
-        String patternPart = s.substring(colon + 1);
-        Type type;
-        try {
-            type = Type.valueOf(typePart.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-        return new RedactionRule(type, patternPart);
-    }
 }

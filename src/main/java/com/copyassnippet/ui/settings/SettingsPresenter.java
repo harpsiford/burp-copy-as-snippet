@@ -35,7 +35,6 @@ final class SettingsPresenter implements SettingsView.Listener {
         clearEditor();
         view.setEditorEnabled(false);
         view.setPresetActions(false, false, false, false, false);
-        reloadTable();
     }
 
     @Override
