@@ -13,7 +13,11 @@ public final class UserSettingsLogger {
     private UserSettingsLogger() {
     }
 
-    public static void logCurrentSettings(Logging logging, Preferences preferences) {
+    static void logCurrentSettings(Logging logging, Preferences preferences) {
+        if (!BuildFlags.DEBUG) {
+            return;
+        }
+
         logging.logToOutput("Copy as snippet persisted user settings:");
 
         List<String> lines = new ArrayList<>();

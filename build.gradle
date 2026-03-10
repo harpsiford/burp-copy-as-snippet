@@ -3,7 +3,10 @@ plugins {
 }
 
 group 'com.copyassnippet'
-version '2.0.0'
+version '2.0.1'
+
+def debugBuild = (findProperty("debug") ?: "false").toString().toBoolean()
+def generatedBuildFlagsDir = layout.buildDirectory.dir("generated/sources/buildFlags/java/main")
 
 repositories {
     mavenLocal()
@@ -18,6 +21,36 @@ dependencies {
     testImplementation 'net.jqwik:jqwik:1.8.5'
     testImplementation 'net.portswigger.burp.extensions:montoya-api:2025.5'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir generatedBuildFlagsDir
+        }
+    }
+}
+
+tasks.register('generateBuildFlags') {
+    outputs.dir(generatedBuildFlagsDir)
+
+    doLast {
+        def outputFile = generatedBuildFlagsDir.get().file("com/copyassnippet/BuildFlags.java").asFile
+        outputFile.parentFile.mkdirs()
+        outputFile.text = """package com.copyassnippet;
+
+public final class BuildFlags {
+    public static final boolean DEBUG = ${debugBuild};
+
+    private BuildFlags() {
+    }
+}
+"""
+    }
+}
+
+compileJava {
+    dependsOn tasks.named('generateBuildFlags')
 }
 
 jar {
