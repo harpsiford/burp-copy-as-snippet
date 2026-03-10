@@ -1,22 +1,19 @@
 package com.copyassnippet.preset.storage;
 
-import burp.api.montoya.persistence.PersistedList;
 import burp.api.montoya.persistence.PersistedObject;
 import com.copyassnippet.preset.model.Preset;
 import com.copyassnippet.preset.model.RedactionRule;
 import com.copyassnippet.preset.service.DefaultPresetFactory;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public final class ProjectSettings {
     public static final int SCHEMA_VERSION = 1;
 
-    private static final String PRESET_IDS_LIST_KEY = "ids";
-    private static final String REDACTION_RULES_KEY = "redactionRules";
-    private static final String RULE_TYPE_KEY = "type";
-    private static final String RULE_PATTERN_KEY = "pattern";
+    private static final TypeReference<List<StoredPreset>> PRESET_LIST_TYPE = new TypeReference<>() {
+    };
 
     private ProjectSettings() {
     }
@@ -42,14 +39,15 @@ public final class ProjectSettings {
             return List.of();
         }
 
-        PersistedList<String> presetIds = container.getStringList(PRESET_IDS_LIST_KEY);
-        if (presetIds == null || presetIds.isEmpty()) {
+        String rawJson = container.getString(PresetStorageSchema.PROJECT_PRESETS_DATA_KEY);
+        if (rawJson == null || rawJson.isBlank()) {
             return List.of();
         }
 
+        List<StoredPreset> storedPresets = PresetSerializationHelper.readJson(rawJson, PRESET_LIST_TYPE);
         List<Preset> presets = new ArrayList<>();
-        for (String presetId : presetIds) {
-            Preset preset = loadPreset(container.getChildObject(presetId));
+        for (StoredPreset storedPreset : storedPresets) {
+            Preset preset = storedPreset.toPreset();
             if (preset != null) {
                 presets.add(preset);
             }
@@ -66,16 +64,12 @@ public final class ProjectSettings {
         PersistedObject container = PersistedObject.persistedObject();
         container.setInteger(PresetStorageSchema.PROJECT_PRESET_SCHEMA_VERSION_KEY, SCHEMA_VERSION);
 
-        PersistedList<String> presetIds = PersistedList.persistedStringList();
+        List<StoredPreset> serialized = new ArrayList<>();
         for (Preset preset : presets) {
-            presetIds.add(preset.getId());
-
-            PersistedObject presetObject = PersistedObject.persistedObject();
-            savePreset(presetObject, preset);
-            container.setChildObject(preset.getId(), presetObject);
+            serialized.add(StoredPreset.fromPreset(preset));
         }
 
-        container.setStringList(PRESET_IDS_LIST_KEY, presetIds);
+        container.setString(PresetStorageSchema.PROJECT_PRESETS_DATA_KEY, PresetSerializationHelper.writeJson(serialized));
         extensionData.setChildObject(PresetStorageSchema.PROJECT_PRESETS_KEY, container);
     }
 
@@ -83,96 +77,94 @@ public final class ProjectSettings {
         extensionData.deleteChildObject(PresetStorageSchema.PROJECT_PRESETS_KEY);
     }
 
-    private static void savePreset(PersistedObject object, Preset preset) {
-        object.setString("id", preset.getId());
-        object.setString("name", preset.getName());
-        object.setString("template", preset.getTemplate());
-        object.setBoolean("enabled", preset.isEnabled());
-        object.setString("replacementString", preset.getReplacementString());
-        object.setStringList("headerRegexes", PresetSerializationHelper.toPersistedStringList(preset.getHeaderRegexes()));
-        object.setStringList("cookieRegexes", PresetSerializationHelper.toPersistedStringList(preset.getCookieRegexes()));
-        object.setStringList("paramRegexes", PresetSerializationHelper.toPersistedStringList(preset.getParamRegexes()));
+    private static final class StoredPreset {
+        public String id;
+        public String name;
+        public List<String> headerRegexes = List.of();
+        public List<String> cookieRegexes = List.of();
+        public List<String> paramRegexes = List.of();
+        public List<StoredRedactionRule> redactionRules = List.of();
+        public String replacementString = DefaultPresetFactory.DEFAULT_REPLACEMENT;
+        public String template = DefaultPresetFactory.DEFAULT_TEMPLATE;
+        public boolean enabled = true;
 
-        PersistedObject rulesContainer = PersistedObject.persistedObject();
-        int index = 0;
-        for (RedactionRule rule : preset.getRedactionRules()) {
-            if (rule == null || rule.getType() == null || rule.getPattern() == null) {
-                continue;
+        private static StoredPreset fromPreset(Preset preset) {
+            StoredPreset storedPreset = new StoredPreset();
+            storedPreset.id = preset.getId();
+            storedPreset.name = preset.getName();
+            storedPreset.headerRegexes = PresetSerializationHelper.copyWithoutNulls(preset.getHeaderRegexes());
+            storedPreset.cookieRegexes = PresetSerializationHelper.copyWithoutNulls(preset.getCookieRegexes());
+            storedPreset.paramRegexes = PresetSerializationHelper.copyWithoutNulls(preset.getParamRegexes());
+            storedPreset.redactionRules = StoredRedactionRule.fromRules(preset.getRedactionRules());
+            storedPreset.replacementString = preset.getReplacementString();
+            storedPreset.template = preset.getTemplate();
+            storedPreset.enabled = preset.isEnabled();
+            return storedPreset;
+        }
+
+        private Preset toPreset() {
+            if (id == null || id.isBlank() || name == null) {
+                return null;
             }
 
-            PersistedObject ruleObject = PersistedObject.persistedObject();
-            ruleObject.setString(RULE_TYPE_KEY, rule.getType().name());
-            ruleObject.setString(RULE_PATTERN_KEY, rule.getPattern());
-            rulesContainer.setChildObject(String.valueOf(index), ruleObject);
-            index++;
+            return new Preset(
+                    id,
+                    name,
+                    PresetSerializationHelper.copyWithoutNulls(headerRegexes),
+                    PresetSerializationHelper.copyWithoutNulls(cookieRegexes),
+                    PresetSerializationHelper.copyWithoutNulls(paramRegexes),
+                    StoredRedactionRule.toRules(redactionRules),
+                    replacementString != null ? replacementString : DefaultPresetFactory.DEFAULT_REPLACEMENT,
+                    template != null ? template : DefaultPresetFactory.DEFAULT_TEMPLATE,
+                    enabled
+            );
         }
-        object.setChildObject(REDACTION_RULES_KEY, rulesContainer);
     }
 
-    private static Preset loadPreset(PersistedObject object) {
-        if (object == null) {
-            return null;
-        }
+    private static final class StoredRedactionRule {
+        public String type;
+        public String pattern;
 
-        String name = object.getString("name");
-        String id = object.getString("id");
-        if (id == null || name == null) {
-            return null;
-        }
-
-        String template = object.getString("template");
-        String replacement = object.getString("replacementString");
-        Boolean enabledValue = object.getBoolean("enabled");
-
-        return new Preset(
-                id,
-                name,
-                PresetSerializationHelper.copyWithoutNulls(object.getStringList("headerRegexes")),
-                PresetSerializationHelper.copyWithoutNulls(object.getStringList("cookieRegexes")),
-                PresetSerializationHelper.copyWithoutNulls(object.getStringList("paramRegexes")),
-                loadRules(object.getChildObject(REDACTION_RULES_KEY)),
-                replacement != null ? replacement : DefaultPresetFactory.DEFAULT_REPLACEMENT,
-                template != null ? template : DefaultPresetFactory.DEFAULT_TEMPLATE,
-                enabledValue == null || enabledValue
-        );
-    }
-
-    private static List<RedactionRule> loadRules(PersistedObject rulesContainer) {
-        if (rulesContainer == null) {
-            return List.of();
-        }
-
-        List<String> childKeys = new ArrayList<>(rulesContainer.childObjectKeys());
-        childKeys.sort(Comparator.comparingInt(ProjectSettings::ruleKeyOrder));
-
-        List<RedactionRule> rules = new ArrayList<>();
-        for (String childKey : childKeys) {
-            PersistedObject ruleObject = rulesContainer.getChildObject(childKey);
-            if (ruleObject == null) {
-                continue;
+        private static List<StoredRedactionRule> fromRules(List<RedactionRule> rules) {
+            List<StoredRedactionRule> serialized = new ArrayList<>();
+            if (rules == null) {
+                return serialized;
             }
 
-            String type = ruleObject.getString(RULE_TYPE_KEY);
-            String pattern = ruleObject.getString(RULE_PATTERN_KEY);
-            if (type == null || pattern == null) {
-                continue;
-            }
+            for (RedactionRule rule : rules) {
+                if (rule == null || rule.getType() == null || rule.getPattern() == null) {
+                    continue;
+                }
 
-            try {
-                rules.add(new RedactionRule(RedactionRule.Type.valueOf(type.toUpperCase()), pattern));
-            } catch (IllegalArgumentException ignored) {
-                // Ignore invalid stored rules rather than failing the entire preset.
+                StoredRedactionRule storedRule = new StoredRedactionRule();
+                storedRule.type = rule.getType().name();
+                storedRule.pattern = rule.getPattern();
+                serialized.add(storedRule);
             }
+            return serialized;
         }
 
-        return rules;
-    }
+        private static List<RedactionRule> toRules(List<StoredRedactionRule> storedRules) {
+            if (storedRules == null) {
+                return List.of();
+            }
 
-    private static int ruleKeyOrder(String key) {
-        try {
-            return Integer.parseInt(key);
-        } catch (NumberFormatException ignored) {
-            return Integer.MAX_VALUE;
+            List<RedactionRule> rules = new ArrayList<>();
+            for (StoredRedactionRule storedRule : storedRules) {
+                if (storedRule == null || storedRule.type == null || storedRule.pattern == null) {
+                    continue;
+                }
+
+                try {
+                    rules.add(new RedactionRule(
+                            RedactionRule.Type.valueOf(storedRule.type.toUpperCase()),
+                            storedRule.pattern
+                    ));
+                } catch (IllegalArgumentException ignored) {
+                    // Ignore invalid stored rule types rather than failing the whole settings payload.
+                }
+            }
+            return rules;
         }
     }
 }

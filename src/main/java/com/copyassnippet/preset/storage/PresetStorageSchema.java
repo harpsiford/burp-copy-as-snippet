@@ -6,6 +6,7 @@ public final class PresetStorageSchema {
 
     public static final String PROJECT_PRESETS_KEY = "project.presets";
     public static final String PROJECT_PRESET_SCHEMA_VERSION_KEY = "schemaVersion";
+    public static final String PROJECT_PRESETS_DATA_KEY = "data";
     public static final int CURRENT_PROJECT_SCHEMA_VERSION = ProjectSettings.SCHEMA_VERSION;
 
     private PresetStorageSchema() {
