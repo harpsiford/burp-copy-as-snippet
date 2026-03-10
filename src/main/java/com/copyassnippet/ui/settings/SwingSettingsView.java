@@ -1,5 +1,6 @@
 package com.copyassnippet.ui.settings;
 
+import com.copyassnippet.hotkey.HotkeyDefinition;
 import com.copyassnippet.hotkey.HotkeySettingsState;
 import com.copyassnippet.preset.form.PresetFormData;
 import com.copyassnippet.preset.service.PresetApplicationService;
@@ -13,6 +14,8 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import java.awt.*;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -21,9 +24,13 @@ import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.EventObject;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 final class SwingSettingsView implements SettingsView {
     private Listener listener;
+    private final Consumer<Component> themeApplier;
 
     private final JPanel panel;
     private final PresetTableModel tableModel;
@@ -43,8 +50,10 @@ final class SwingSettingsView implements SettingsView {
 
     private final JCheckBox hotkeyEnabledCheckbox;
     private final JTextField hotkeyField;
+    private final JButton hotkeyChangeButton;
 
-    SwingSettingsView() {
+    SwingSettingsView(Consumer<Component> themeApplier) {
+        this.themeApplier = themeApplier;
         tableModel = new PresetTableModel();
         tableModel.setEnabledToggleListener(this::notifyPresetEnabledToggled);
 
@@ -139,19 +148,22 @@ final class SwingSettingsView implements SettingsView {
 
         hotkeyField = new JTextField("", 20);
         hotkeyField.setFont(UIManager.getFont("TextField.font"));
+        hotkeyField.setEditable(false);
+        hotkeyField.setFocusable(false);
+
+        hotkeyChangeButton = new JButton("Change...");
+        hotkeyChangeButton.addActionListener(e -> showHotkeyCaptureDialog());
         hotkeyEnabledCheckbox.addActionListener(e -> {
             boolean enabled = hotkeyEnabledCheckbox.isSelected();
             hotkeyField.setEnabled(enabled);
+            hotkeyChangeButton.setEnabled(enabled);
             notifyHotkeyEnabledToggled(enabled);
         });
-
-        JButton hotkeyApplyButton = new JButton("Apply");
-        hotkeyApplyButton.addActionListener(e -> notifyApplyHotkey());
 
         JPanel hotkeyRow = new JPanel(new BorderLayout(5, 0));
         hotkeyRow.add(new JLabel("Shortcut:"), BorderLayout.WEST);
         hotkeyRow.add(hotkeyField, BorderLayout.CENTER);
-        hotkeyRow.add(hotkeyApplyButton, BorderLayout.EAST);
+        hotkeyRow.add(hotkeyChangeButton, BorderLayout.EAST);
         hotkeyRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 
         JPanel hotkeyPanel = new JPanel();
@@ -385,6 +397,7 @@ final class SwingSettingsView implements SettingsView {
         hotkeyEnabledCheckbox.setSelected(state.isEnabled());
         hotkeyField.setText(state.getHotkey());
         hotkeyField.setEnabled(state.isEnabled());
+        hotkeyChangeButton.setEnabled(state.isEnabled());
     }
 
     private void onSelectionChanged(ListSelectionEvent event) {
@@ -462,12 +475,6 @@ final class SwingSettingsView implements SettingsView {
         }
     }
 
-    private void notifyApplyHotkey() {
-        if (listener != null) {
-            listener.onApplyHotkey();
-        }
-    }
-
     private void notifyHotkeyEnabledToggled(boolean enabled) {
         if (listener != null) {
             listener.onHotkeyEnabledToggled(enabled);
@@ -516,7 +523,252 @@ final class SwingSettingsView implements SettingsView {
             }
         });
         dialog.getRootPane().setDefaultButton(saveButton);
+        applyTheme(dialog);
         return dialog;
+    }
+
+    private void showHotkeyCaptureDialog() {
+        String capturedHotkey = captureHotkey(hotkeyField.getText().trim());
+        if (capturedHotkey == null) {
+            return;
+        }
+
+        hotkeyField.setText(capturedHotkey);
+        if (listener != null) {
+            listener.onApplyHotkey();
+        }
+    }
+
+    private String captureHotkey(String currentHotkey) {
+        Window owner = SwingUtilities.getWindowAncestor(panel);
+        JDialog dialog = createHotkeyCaptureDialog(owner);
+
+        JTextField previewField = new JTextField(currentHotkey, 20);
+        previewField.setEditable(false);
+        previewField.setFocusable(false);
+        previewField.setFont(UIManager.getFont("TextField.font"));
+
+        JLabel noteLabel = new JLabel(primaryModifierNote());
+        Color infoColor = UIManager.getColor("Label.disabledForeground");
+        if (infoColor != null) {
+            noteLabel.setForeground(infoColor);
+        }
+
+        JButton applyButton = new JButton("Apply");
+        JButton cancelButton = new JButton("Cancel");
+        AtomicReference<String> pendingHotkey = new AtomicReference<>(HotkeyDefinition.isValid(currentHotkey) ? currentHotkey : null);
+        AtomicReference<String> appliedHotkey = new AtomicReference<>(null);
+        applyButton.setEnabled(pendingHotkey.get() != null);
+
+        JPanel content = new JPanel();
+        content.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel("Press the new keyboard shortcut.");
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        previewField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        noteLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        buttons.setAlignmentX(Component.LEFT_ALIGNMENT);
+        buttons.add(applyButton);
+        buttons.add(Box.createHorizontalStrut(6));
+        buttons.add(cancelButton);
+
+        content.add(titleLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(previewField);
+        content.add(Box.createVerticalStrut(6));
+        content.add(noteLabel);
+        content.add(Box.createVerticalStrut(10));
+        content.add(buttons);
+
+        dialog.setContentPane(content);
+        dialog.getRootPane().setDefaultButton(applyButton);
+        dialog.pack();
+        dialog.setMinimumSize(dialog.getPreferredSize());
+        dialog.setLocationRelativeTo(panel);
+        applyTheme(dialog);
+
+        applyButton.addActionListener(e -> {
+            appliedHotkey.set(pendingHotkey.get());
+            dialog.dispose();
+        });
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        KeyEventDispatcher dispatcher = event -> {
+            if (!dialog.isShowing() || !dialog.isActive() || event.getID() != KeyEvent.KEY_PRESSED) {
+                return false;
+            }
+
+            if (event.getModifiersEx() == 0 && event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                dialog.dispose();
+                return true;
+            }
+
+            if (isModifierKey(event.getKeyCode())) {
+                String preview = modifierPreview(event.getModifiersEx());
+                previewField.setText(preview);
+                noteLabel.setText(primaryModifierNote());
+                applyButton.setEnabled(false);
+                return true;
+            }
+
+            String shortcut = toShortcut(event);
+            if (shortcut == null) {
+                noteLabel.setText(invalidShortcutMessage());
+                applyButton.setEnabled(false);
+                return true;
+            }
+
+            pendingHotkey.set(shortcut);
+            previewField.setText(shortcut);
+            noteLabel.setText(primaryModifierNote());
+            applyButton.setEnabled(true);
+            return true;
+        };
+
+        KeyboardFocusManager focusManager = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        focusManager.addKeyEventDispatcher(dispatcher);
+        try {
+            SwingUtilities.invokeLater(() -> dialog.requestFocus());
+            dialog.setVisible(true);
+        } finally {
+            focusManager.removeKeyEventDispatcher(dispatcher);
+        }
+        return appliedHotkey.get();
+    }
+
+    private JDialog createHotkeyCaptureDialog(Window owner) {
+        JDialog dialog;
+        if (owner instanceof Dialog) {
+            dialog = new JDialog((Dialog) owner, "Record keyboard shortcut", Dialog.ModalityType.DOCUMENT_MODAL);
+        } else if (owner instanceof Frame) {
+            dialog = new JDialog((Frame) owner, "Record keyboard shortcut", Dialog.ModalityType.DOCUMENT_MODAL);
+        } else {
+            dialog = new JDialog((Frame) null, "Record keyboard shortcut", Dialog.ModalityType.APPLICATION_MODAL);
+        }
+        dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        return dialog;
+    }
+
+    private void applyTheme(Component component) {
+        if (themeApplier != null) {
+            themeApplier.accept(component);
+        }
+    }
+
+    private static String primaryModifierNote() {
+        return "Use " + (HotkeyDefinition.usesCommandModifier() ? "Cmd" : "Ctrl")
+                + " with an additional key. Alt and Shift are optional.";
+    }
+
+    private static String invalidShortcutMessage() {
+        return "That key combination is not supported by Burp. Try a different key.";
+    }
+
+    private static boolean isModifierKey(int keyCode) {
+        return keyCode == KeyEvent.VK_SHIFT
+                || keyCode == KeyEvent.VK_CONTROL
+                || keyCode == KeyEvent.VK_ALT
+                || keyCode == KeyEvent.VK_META
+                || keyCode == KeyEvent.VK_ALT_GRAPH;
+    }
+
+    private static String modifierPreview(int modifiersEx) {
+        List<String> parts = modifierParts(modifiersEx);
+        return parts.isEmpty() ? "" : String.join("+", parts);
+    }
+
+    private static String toShortcut(KeyEvent event) {
+        int modifiersEx = event.getModifiersEx();
+        if (!hasPrimaryModifier(modifiersEx)) {
+            return null;
+        }
+
+        String keyToken = keyToken(event.getKeyCode());
+        if (keyToken == null) {
+            return null;
+        }
+
+        List<String> parts = modifierParts(modifiersEx);
+        parts.add(keyToken);
+        String shortcut = String.join("+", parts);
+        return HotkeyDefinition.isValid(shortcut) ? shortcut : null;
+    }
+
+    private static boolean hasPrimaryModifier(int modifiersEx) {
+        int requiredMask = HotkeyDefinition.usesCommandModifier()
+                ? InputEvent.META_DOWN_MASK
+                : InputEvent.CTRL_DOWN_MASK;
+        return (modifiersEx & requiredMask) != 0;
+    }
+
+    private static List<String> modifierParts(int modifiersEx) {
+        List<String> parts = new ArrayList<>();
+        if (HotkeyDefinition.usesCommandModifier()) {
+            if ((modifiersEx & InputEvent.META_DOWN_MASK) != 0) {
+                parts.add("Cmd");
+            }
+        } else if ((modifiersEx & InputEvent.CTRL_DOWN_MASK) != 0) {
+            parts.add("Ctrl");
+        }
+
+        if ((modifiersEx & InputEvent.ALT_DOWN_MASK) != 0) {
+            parts.add("Alt");
+        }
+        if ((modifiersEx & InputEvent.SHIFT_DOWN_MASK) != 0) {
+            parts.add("Shift");
+        }
+        return parts;
+    }
+
+    private static String keyToken(int keyCode) {
+        if (keyCode >= KeyEvent.VK_A && keyCode <= KeyEvent.VK_Z) {
+            return String.valueOf((char) ('A' + (keyCode - KeyEvent.VK_A)));
+        }
+        if (keyCode >= KeyEvent.VK_0 && keyCode <= KeyEvent.VK_9) {
+            return String.valueOf((char) ('0' + (keyCode - KeyEvent.VK_0)));
+        }
+        if (keyCode >= KeyEvent.VK_F1 && keyCode <= KeyEvent.VK_F24) {
+            return "F" + (keyCode - KeyEvent.VK_F1 + 1);
+        }
+
+        return switch (keyCode) {
+            case KeyEvent.VK_ENTER -> "Enter";
+            case KeyEvent.VK_SPACE -> "Space";
+            case KeyEvent.VK_TAB -> "Tab";
+            case KeyEvent.VK_BACK_SPACE -> "Backspace";
+            case KeyEvent.VK_DELETE -> "Delete";
+            case KeyEvent.VK_UP -> "Up";
+            case KeyEvent.VK_DOWN -> "Down";
+            case KeyEvent.VK_LEFT -> "Left";
+            case KeyEvent.VK_RIGHT -> "Right";
+            case KeyEvent.VK_HOME -> "Home";
+            case KeyEvent.VK_END -> "End";
+            case KeyEvent.VK_PAGE_UP -> "PageUp";
+            case KeyEvent.VK_PAGE_DOWN -> "PageDown";
+            case KeyEvent.VK_INSERT -> "Insert";
+            case KeyEvent.VK_ESCAPE -> "Escape";
+            case KeyEvent.VK_BACK_QUOTE -> "BackQuote";
+            case KeyEvent.VK_MINUS -> "Minus";
+            case KeyEvent.VK_EQUALS -> "Equals";
+            case KeyEvent.VK_OPEN_BRACKET -> "OpenBracket";
+            case KeyEvent.VK_CLOSE_BRACKET -> "CloseBracket";
+            case KeyEvent.VK_BACK_SLASH -> "BackSlash";
+            case KeyEvent.VK_SEMICOLON -> "Semicolon";
+            case KeyEvent.VK_QUOTE -> "Quote";
+            case KeyEvent.VK_COMMA -> "Comma";
+            case KeyEvent.VK_PERIOD -> "Period";
+            case KeyEvent.VK_SLASH -> "Slash";
+            default -> {
+                String keyText = KeyEvent.getKeyText(keyCode);
+                if (keyText == null || keyText.isBlank() || keyText.toLowerCase(Locale.ROOT).contains("unknown")) {
+                    yield null;
+                }
+                yield keyText.replace(" ", "");
+            }
+        };
     }
 
     private static Icon scaledNativeCheckboxIcon(int targetSize) {

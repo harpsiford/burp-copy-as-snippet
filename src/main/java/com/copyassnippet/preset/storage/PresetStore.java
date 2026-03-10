@@ -2,6 +2,7 @@ package com.copyassnippet.preset.storage;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.persistence.Preferences;
+import com.copyassnippet.hotkey.HotkeyDefinition;
 import com.copyassnippet.preset.model.Preset;
 import com.copyassnippet.preset.service.PresetResolver;
 
@@ -9,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PresetStore {
-    public static final String DEFAULT_HOTKEY = "Ctrl+Shift+C";
+    public static final String DEFAULT_HOTKEY = HotkeyDefinition.defaultShortcut();
 
     private final Preferences preferences;
     private final PresetResolver presetResolver;

@@ -21,7 +21,9 @@ public class CopyAsSnippetExtension implements BurpExtension
         HotkeyManager hotkeyManager = new HotkeyManager(api, presetStore, redactionEngine);
 
         api.userInterface().registerContextMenuItemsProvider(new MyContextMenuItemsProvider(presetStore, redactionEngine));
-        api.userInterface().registerSettingsPanel(new MySettingsPanel(presetStore, hotkeyManager));
+        api.userInterface().registerSettingsPanel(
+                new MySettingsPanel(presetStore, hotkeyManager, api.userInterface()::applyThemeToComponent)
+        );
 
         hotkeyManager.applyFromSettings();
     }

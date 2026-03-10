@@ -6,7 +6,11 @@ import burp.api.montoya.ui.hotkey.HotKeyContext;
 import com.copyassnippet.preset.storage.PresetStore;
 import com.copyassnippet.redaction.CachingRedactionEngine;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 public class HotkeyManager {
+    private static final Logger LOGGER = Logger.getLogger(HotkeyManager.class.getName());
 
     private final MontoyaApi api;
     private final PresetStore presetStore;
@@ -27,11 +31,16 @@ public class HotkeyManager {
     }
 
     private void register(String hotkeyString) {
-        currentRegistration = api.userInterface().registerHotKeyHandler(
-                HotKeyContext.HTTP_MESSAGE_EDITOR,
-                hotkeyString,
-                new HotkeyHandler(presetStore, redactionEngine)
-        );
+        try {
+            currentRegistration = api.userInterface().registerHotKeyHandler(
+                    HotKeyContext.HTTP_MESSAGE_EDITOR,
+                    HotkeyDefinition.hotKey(hotkeyString),
+                    new HotkeyHandler(presetStore, redactionEngine)
+            );
+        } catch (RuntimeException exception) {
+            LOGGER.log(Level.WARNING, "Failed to register hotkey \"" + hotkeyString + "\".", exception);
+            currentRegistration = null;
+        }
     }
 
     private void deregister() {

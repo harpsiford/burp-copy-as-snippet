@@ -84,11 +84,8 @@ class PresetFormPanel extends JPanel {
         JPanel ruleHeaderPanel = new JPanel();
         ruleHeaderPanel.setLayout(new BoxLayout(ruleHeaderPanel, BoxLayout.Y_AXIS));
         JLabel rulesHeader = sectionHeader("Redaction Rules");
-        JLabel rulesHint = new JLabel("Value replacement rules:");
         rulesHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rulesHint.setAlignmentX(Component.LEFT_ALIGNMENT);
         ruleHeaderPanel.add(rulesHeader);
-        ruleHeaderPanel.add(rulesHint);
 
         JPanel rulePanel = new JPanel(new BorderLayout(0, 2));
         rulePanel.add(ruleHeaderPanel, BorderLayout.NORTH);
@@ -120,7 +117,7 @@ class PresetFormPanel extends JPanel {
 
         JLabel templateHeader = sectionHeader("Template");
         templateHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JPanel templatePanel = labeledScroll("Template placeholders: {{request}}, {{response}}", templateArea);
+        JPanel templatePanel = labeledScroll("Available placeholders: {{request}}, {{response}}", templateArea);
         templatePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         add(nameRow);
