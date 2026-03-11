@@ -3,7 +3,7 @@
 Are you tired of removing junk headers and cookies from the PoCs copied from Burp? I know I am!
 
 ## Getting started
-1. Install the lastest release of the extension.
+1. Install the latest release of the extension.
 2. Go to Burp Settings > Extensions > Copy as snippet.
 3. Check "Enable keyboard shortcut".
 
