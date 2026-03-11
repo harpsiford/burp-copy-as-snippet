@@ -86,6 +86,9 @@ class PresetFormPanel extends JPanel {
         JLabel rulesHeader = sectionHeader("Redaction Rules");
         rulesHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
         ruleHeaderPanel.add(rulesHeader);
+        JLabel rulesHint = new JLabel("Each regex group will be replaced with the replacement string");
+        rulesHint.setAlignmentX(Component.LEFT_ALIGNMENT);
+        ruleHeaderPanel.add(rulesHint);
 
         JPanel rulePanel = new JPanel(new BorderLayout(0, 2));
         rulePanel.add(ruleHeaderPanel, BorderLayout.NORTH);
